@@ -46,17 +46,19 @@ It should explain DeFi clearly instead of mechanically translating English inter
 
 ---
 
-## DEC-004 — Nuxt 3 for MVP
+## DEC-004 — Nuxt 4 for MVP
 
 The MVP uses:
 
-- Nuxt 3
+- Nuxt 4
 - Vue 3
 - TypeScript strict
 - pnpm
 - ESLint
 
----
+Nuxt 4 is selected because DeFi OS is a new project with no migration constraints.
+
+Starting on the current active major version avoids building new product code on a framework version approaching the end of its maintenance lifecycle.
 
 ## DEC-005 — Nuxt Server API before Separate Backend
 

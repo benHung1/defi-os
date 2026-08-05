@@ -22,7 +22,7 @@ It is not designed for hypothetical future scale.
 
 # Technology Stack
 
-- Nuxt 3
+- Nuxt 4
 - Vue 3
 - TypeScript strict
 - Nuxt Server API

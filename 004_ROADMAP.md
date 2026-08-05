@@ -26,7 +26,7 @@ Create a clean and stable project foundation.
 
 ## Deliverables
 
-- Nuxt 3 project
+- Nuxt 4 project
 - Vue 3
 - TypeScript strict
 - pnpm
