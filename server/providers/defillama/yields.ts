@@ -10,6 +10,11 @@ export interface DefiLlamaYieldPool {
   chain: string
   apy: number
   tvlUsd: number | null
+  /**
+   * Provider 30-day mean APY when present.
+   * Kept separate from current `apy`; never used as the displayed rate.
+   */
+  apyMean30d: number | null
   exposure: string | null
   ilRisk: string | null
   stablecoin: boolean | null
@@ -98,6 +103,7 @@ function parseDefiLlamaYieldPool (value: unknown): DefiLlamaYieldPool {
     chain: readRequiredString(value.chain, 'chain'),
     apy: readRequiredNumber(value.apy, 'apy'),
     tvlUsd: readOptionalNumber(value.tvlUsd),
+    apyMean30d: readOptionalNumber(value.apyMean30d),
     exposure: readOptionalString(value.exposure),
     ilRisk: readOptionalString(value.ilRisk),
     stablecoin: readOptionalBoolean(value.stablecoin),
