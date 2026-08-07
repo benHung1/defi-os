@@ -3,7 +3,7 @@ import { fetchDefiLlamaYieldPools } from '../providers/defillama/yields'
 import type {
   OpportunityType,
   YieldOpportunity,
-  UsdcYieldResponse
+  UsdcMarketResponse
 } from '../types/yield'
 import {
   evaluateObservationDataQuality,
@@ -138,7 +138,16 @@ function selectFluidPool (pools: DefiLlamaYieldPool[]): DefiLlamaYieldPool | nul
   })
 }
 
-function toYieldOpportunity (
+/**
+ * Morpho curated USDC vault ingestion is not implemented yet.
+ *
+ * DefiLlama /pools lacks reliable vault identity (curator / vault name,
+ * vault-vs-market discriminator). Absence means ingestion limitation —
+ * not a product-level exclusion of Morpho from the Market universe.
+ * Future work may add CURATED_VAULT opportunities when identity is reliable.
+ */
+
+function toMarketOpportunity (
   pool: DefiLlamaYieldPool,
   protocol: string,
   product: string,
@@ -147,10 +156,9 @@ function toYieldOpportunity (
 ): YieldOpportunity | null {
   const quality = evaluateObservationDataQuality(pool.apy, pool.apyMean30d)
 
-  // Only VERIFIED observations may enter the normalized response.
-  // SUSPECT candidates are omitted — never replaced by special-purpose markets.
+  // Market Service owns DataQuality policy: omit SUSPECT observations.
   if (quality.dataQuality !== 'VERIFIED') {
-    console.warn('[usdcYieldService] omitting SUSPECT opportunity', {
+    console.warn('[usdcMarketService] omitting SUSPECT opportunity', {
       protocol,
       product,
       sourcePoolId: pool.pool,
@@ -190,7 +198,7 @@ function pushIfVerified (
     return
   }
 
-  const opportunity = toYieldOpportunity(
+  const opportunity = toMarketOpportunity(
     pool,
     protocol,
     product,
@@ -204,19 +212,10 @@ function pushIfVerified (
 }
 
 /**
- * Morpho curated USDC vault is intentionally omitted.
- *
- * DefiLlama /pools exposes morpho-blue share-token rows with verified USDC
- * underlyings, but does not provide reliable vault identity:
- * - poolMeta is typically null (no curator / vault display name)
- * - no vault-vs-direct-market discriminator beyond opaque symbols
- * - symbol heuristics such as endsWith('USDC') are explicitly disallowed
- *
- * Without Morpho vault metadata (or an official Morpho vault provider),
- * DeFi OS omits Morpho rather than guessing or falling back to the tiny
- * plain-USDC direct market (APY 0 / ~$10k TVL).
+ * Currently supported product selectors.
+ * Coverage is not the permanent Market universe — Task-008 may add more.
  */
-function selectUsdcOpportunities (
+function collectSupportedMarketOpportunities (
   pools: DefiLlamaYieldPool[],
   fetchedAt: string
 ): YieldOpportunity[] {
@@ -249,14 +248,41 @@ function selectUsdcOpportunities (
     fetchedAt
   )
 
-  return opportunities.sort((left, right) =>
-    left.protocol.localeCompare(right.protocol)
-  )
+  return opportunities
 }
 
-export async function getUsdcYieldOpportunities (): Promise<UsdcYieldResponse> {
+function compareMarketOrder (left: YieldOpportunity, right: YieldOpportunity): number {
+  const tvlDiff = (right.tvlUsd ?? -1) - (left.tvlUsd ?? -1)
+  if (tvlDiff !== 0) {
+    return tvlDiff
+  }
+
+  const protocolCompare = left.protocol.localeCompare(right.protocol)
+  if (protocolCompare !== 0) {
+    return protocolCompare
+  }
+
+  const productCompare = left.product.localeCompare(right.product)
+  if (productCompare !== 0) {
+    return productCompare
+  }
+
+  const chainCompare = left.chain.localeCompare(right.chain)
+  if (chainCompare !== 0) {
+    return chainCompare
+  }
+
+  return (left.sourcePoolId ?? '').localeCompare(right.sourcePoolId ?? '')
+}
+
+/**
+ * Trusted USDC Market Dataset.
+ * Answers: what trustworthy USDC opportunities do we currently know about?
+ */
+export async function getUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
   const { pools, fetchedAt } = await fetchDefiLlamaYieldPools()
-  const data = selectUsdcOpportunities(pools, fetchedAt)
+  const data = collectSupportedMarketOpportunities(pools, fetchedAt)
+    .sort(compareMarketOrder)
 
   return {
     data,

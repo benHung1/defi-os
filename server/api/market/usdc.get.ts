@@ -1,12 +1,12 @@
 import { ProviderError } from '../../providers/errors'
-import { getUsdcYieldOpportunities } from '../../services/usdcYieldService'
+import { getUsdcMarketOpportunities } from '../../services/usdcMarketService'
 
 export default defineEventHandler(async () => {
   try {
-    return await getUsdcYieldOpportunities()
+    return await getUsdcMarketOpportunities()
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown provider failure'
-    console.error('[api/yields/usdc] upstream failure', {
+    console.error('[api/market/usdc] upstream failure', {
       detail,
       provider: error instanceof ProviderError ? error.provider : 'unknown'
     })
@@ -14,7 +14,7 @@ export default defineEventHandler(async () => {
     throw createError({
       statusCode: 502,
       statusMessage: 'Bad Gateway',
-      message: 'USDC yield data is currently unavailable.'
+      message: 'USDC market data is currently unavailable.'
     })
   }
 })

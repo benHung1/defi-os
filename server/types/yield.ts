@@ -84,7 +84,7 @@ export interface YieldResponseMeta {
   status: FreshnessStatus
 }
 
-export interface UsdcYieldResponse {
+export interface UsdcMarketResponse {
   data: YieldOpportunity[]
   meta: YieldResponseMeta
 }
