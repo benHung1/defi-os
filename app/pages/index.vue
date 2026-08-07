@@ -46,30 +46,22 @@ interface OpportunityView {
 interface Dashboard {
   greeting: string
   date: string
-  decision: {
-    level: DecisionLevel
-    headline: string
-    statement: string
-    evidence: string[]
-  }
   portfolio: SummaryItem[]
   events: ChainEvent[]
   updatedAt: string
 }
 
+interface HeroView {
+  level: DecisionLevel
+  question: string
+  headline: string
+  statement: string
+  evidence: string[]
+}
+
 const dashboard: Dashboard = {
   greeting: '早安',
   date: '2026 年 8 月 5 日',
-  decision: {
-    level: 'attention',
-    headline: '有 1 個協議需要你留意',
-    statement: '其餘持倉維持穩定，今天不需要調整。',
-    evidence: [
-      'Aave 的 USDC 存款 APR 由 5.2% 降至 3.4%',
-      '單一協議佔投資組合 58%，集中度偏高',
-      '過去 7 天沒有偵測到相關安全事件'
-    ]
-  },
   portfolio: [
     { label: '投資組合價值', value: 'US$128,450', note: '手動輸入的持倉合計' },
     { label: '資產', value: '4 種', note: 'USDC、ETH、WBTC、stETH' },
@@ -78,10 +70,10 @@ const dashboard: Dashboard = {
   ],
   events: [
     {
-      type: '協議升級',
+      type: '協議更新',
       title: 'Aave 完成利率模型調整',
       protocol: 'Aave',
-      attention: '需留意',
+      attention: '可觀察',
       time: '2 小時前'
     },
     {
@@ -92,10 +84,10 @@ const dashboard: Dashboard = {
       time: '今天 09:20'
     },
     {
-      type: '安全提醒',
-      title: '外部監控回報一筆異常大額轉出',
+      type: '市場動態',
+      title: 'Compound USDC 池 TVL 小幅變動',
       protocol: 'Compound',
-      attention: '建議查看',
+      attention: '可觀察',
       time: '昨天 21:05'
     }
   ],
@@ -178,20 +170,46 @@ const fluidAnnualUsdc = annualYieldUsdc(fluidRow.aprDiff)
 const annualYieldLow = Math.min(morphoAnnualUsdc, fluidAnnualUsdc)
 const annualYieldHigh = Math.max(morphoAnnualUsdc, fluidAnnualUsdc)
 
+const morphoOpportunity = usdcOpportunities.find(item => item.protocol === 'Morpho')
+const fluidOpportunity = usdcOpportunities.find(item => item.protocol === 'Fluid')
+
+if (!morphoOpportunity || !fluidOpportunity) {
+  throw new Error('Missing Morpho or Fluid opportunity source data')
+}
+
+const higherYieldRiskLabel = morphoOpportunity.risk === fluidOpportunity.risk
+  ? `${morphoOpportunity.risk} Risk`
+  : `${morphoOpportunity.risk} / ${fluidOpportunity.risk} Risk`
+
+// Mock conclusion for this task — not a Decision Engine rule.
+const decisionConclusion = '目前不需要調整。'
+
+const hero: HeroView = {
+  level: 'healthy',
+  question: '今天需要做什麼？',
+  headline: `目前不需要調整 ${usdcPosition.asset} 配置`,
+  statement: `${usdcPosition.protocol} 目前 APR ${formatApr(usdcPosition.apr)}，市場上雖有更高收益選項，但差距暫時不足以支持搬倉。`,
+  evidence: [
+    `目前 ${usdcPosition.amount.toLocaleString('en-US')} ${usdcPosition.asset} 位於 ${usdcPosition.protocol}`,
+    `Morpho 約高 ${formatSignedAprDiff(morphoRow.aprDiff)}，Fluid 約高 ${formatSignedAprDiff(fluidRow.aprDiff)}`,
+    `較高收益選項目前為 ${higherYieldRiskLabel}`
+  ]
+}
+
 const moveDecision = {
   question: '值得搬嗎？',
-  answer: '暫時不用。',
+  answer: decisionConclusion,
   reasons: [
     `Morpho 只比目前部位高 ${formatSignedAprDiff(morphoRow.aprDiff)} APR`,
     `Fluid 比目前部位高 ${formatSignedAprDiff(fluidRow.aprDiff)} APR`,
-    '較高收益的選項目前協議風險也較高（Medium）',
+    `較高收益的選項目前協議風險也較高（${morphoOpportunity.risk}）`,
     `以 ${usdcPosition.amount.toLocaleString('en-US')} USDC 估算，額外年化收益約 ${annualYieldLow.toLocaleString('en-US')}–${annualYieldHigh.toLocaleString('en-US')} USDC，尚不足以支持現在搬倉`
   ],
   estimateNote: '上述金額為依目前 APR 差距推估的年化差額，不是保證收益。',
   disclaimer: '此比較僅依示意資料說明差異，不構成投資建議。'
 }
 
-const isHealthy = dashboard.decision.level === 'healthy'
+const isHealthy = hero.level === 'healthy'
 
 const { toggleLabel, toggleTheme } = useTheme()
 </script>
@@ -221,16 +239,16 @@ const { toggleLabel, toggleTheme } = useTheme()
         class="hero"
         :class="isHealthy ? 'hero-healthy' : 'hero-attention'"
       >
-        <p class="hero-question">今天需要做什麼嗎？</p>
+        <p class="hero-question">{{ hero.question }}</p>
         <h1 class="hero-headline">
           <span class="hero-dot">{{ isHealthy ? '🟢' : '🟡' }}</span>
-          {{ dashboard.decision.headline }}
+          {{ hero.headline }}
         </h1>
-        <p class="hero-statement">{{ dashboard.decision.statement }}</p>
+        <p class="hero-statement">{{ hero.statement }}</p>
 
         <ul class="evidence">
           <li
-            v-for="item in dashboard.decision.evidence"
+            v-for="item in hero.evidence"
             :key="item"
           >
             {{ item }}
