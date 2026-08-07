@@ -1,5 +1,6 @@
 <script setup lang="ts">
 type DecisionLevel = 'healthy' | 'attention'
+type RiskLevel = 'Low' | 'Medium'
 
 interface SummaryItem {
   label: string
@@ -15,6 +16,33 @@ interface ChainEvent {
   time: string
 }
 
+interface UsdcPosition {
+  asset: string
+  protocol: string
+  apr: number
+  amount: number
+  risk: RiskLevel
+}
+
+interface UsdcOpportunity {
+  protocol: string
+  apr: number
+  tvl: string
+  risk: RiskLevel
+  isCurrent?: boolean
+}
+
+interface OpportunityView {
+  protocol: string
+  aprLabel: string
+  tvlLabel: string
+  riskLabel: string
+  isCurrent: boolean
+  aprDiffLabel: string
+  annualDiffLabel: string | null
+  aprDiff: number
+}
+
 interface Dashboard {
   greeting: string
   date: string
@@ -25,7 +53,6 @@ interface Dashboard {
     evidence: string[]
   }
   portfolio: SummaryItem[]
-  market: SummaryItem[]
   events: ChainEvent[]
   updatedAt: string
 }
@@ -48,11 +75,6 @@ const dashboard: Dashboard = {
     { label: '資產', value: '4 種', note: 'USDC、ETH、WBTC、stETH' },
     { label: '協議', value: '3 個', note: 'Aave、Lido、Compound' },
     { label: '鏈', value: '2 條', note: 'Ethereum、Arbitrum' }
-  ],
-  market: [
-    { label: '最高 TVL', value: 'Lido', note: 'TVL US$32.1B · 示意資料' },
-    { label: '最高 APR', value: 'Compound', note: 'USDC APR 6.8% · 示意資料' },
-    { label: '關注度上升', value: 'Aave', note: '近 7 天 TVL +4.2% · 示意資料' }
   ],
   events: [
     {
@@ -78,6 +100,95 @@ const dashboard: Dashboard = {
     }
   ],
   updatedAt: '2026-08-05 16:40'
+}
+
+const usdcPosition: UsdcPosition = {
+  asset: 'USDC',
+  protocol: 'Spark',
+  apr: 4.35,
+  amount: 40000,
+  risk: 'Low'
+}
+
+const usdcOpportunities: UsdcOpportunity[] = [
+  { protocol: 'Spark', apr: 4.35, tvl: '$4.8B', risk: 'Low', isCurrent: true },
+  { protocol: 'Aave', apr: 4.12, tvl: '$18.2B', risk: 'Low' },
+  { protocol: 'Morpho', apr: 4.92, tvl: '$3.6B', risk: 'Medium' },
+  { protocol: 'Fluid', apr: 5.14, tvl: '$1.9B', risk: 'Medium' }
+]
+
+function formatApr (apr: number): string {
+  return `${apr.toFixed(2)}%`
+}
+
+function formatAprDiff (diff: number, isCurrent: boolean): string {
+  if (isCurrent) {
+    return '目前部位'
+  }
+  const sign = diff > 0 ? '+' : ''
+  return `${sign}${diff.toFixed(2)}% vs 目前`
+}
+
+function formatAnnualDiff (amount: number, aprDiff: number, isCurrent: boolean): string | null {
+  if (isCurrent || aprDiff === 0) {
+    return null
+  }
+  const yearly = Math.round(amount * (aprDiff / 100))
+  const sign = yearly > 0 ? '+' : ''
+  return `約 ${sign}${yearly.toLocaleString('en-US')} USDC / 年`
+}
+
+const opportunityRows: OpportunityView[] = usdcOpportunities.map((item) => {
+  const isCurrent = item.isCurrent === true
+  const aprDiff = Number((item.apr - usdcPosition.apr).toFixed(2))
+
+  return {
+    protocol: item.protocol,
+    aprLabel: formatApr(item.apr),
+    tvlLabel: item.tvl,
+    riskLabel: `${item.risk} 風險`,
+    isCurrent,
+    aprDiffLabel: formatAprDiff(aprDiff, isCurrent),
+    annualDiffLabel: formatAnnualDiff(usdcPosition.amount, aprDiff, isCurrent),
+    aprDiff
+  }
+})
+
+function getOpportunityRow (protocol: string): OpportunityView {
+  const row = opportunityRows.find(item => item.protocol === protocol)
+  if (!row) {
+    throw new Error(`Missing opportunity row: ${protocol}`)
+  }
+  return row
+}
+
+function formatSignedAprDiff (diff: number): string {
+  const sign = diff > 0 ? '+' : ''
+  return `${sign}${diff.toFixed(2)}%`
+}
+
+function annualYieldUsdc (aprDiff: number): number {
+  return Math.round(usdcPosition.amount * (aprDiff / 100))
+}
+
+const morphoRow = getOpportunityRow('Morpho')
+const fluidRow = getOpportunityRow('Fluid')
+const morphoAnnualUsdc = annualYieldUsdc(morphoRow.aprDiff)
+const fluidAnnualUsdc = annualYieldUsdc(fluidRow.aprDiff)
+const annualYieldLow = Math.min(morphoAnnualUsdc, fluidAnnualUsdc)
+const annualYieldHigh = Math.max(morphoAnnualUsdc, fluidAnnualUsdc)
+
+const moveDecision = {
+  question: '值得搬嗎？',
+  answer: '暫時不用。',
+  reasons: [
+    `Morpho 只比目前部位高 ${formatSignedAprDiff(morphoRow.aprDiff)} APR`,
+    `Fluid 比目前部位高 ${formatSignedAprDiff(fluidRow.aprDiff)} APR`,
+    '較高收益的選項目前協議風險也較高（Medium）',
+    `以 ${usdcPosition.amount.toLocaleString('en-US')} USDC 估算，額外年化收益約 ${annualYieldLow.toLocaleString('en-US')}–${annualYieldHigh.toLocaleString('en-US')} USDC，尚不足以支持現在搬倉`
+  ],
+  estimateNote: '上述金額為依目前 APR 差距推估的年化差額，不是保證收益。',
+  disclaimer: '此比較僅依示意資料說明差異，不構成投資建議。'
 }
 
 const isHealthy = dashboard.decision.level === 'healthy'
@@ -145,17 +256,47 @@ const { toggleLabel, toggleTheme } = useTheme()
 
       <section class="section">
         <div class="section-head">
-          <h2>市場概況</h2>
-          <p>目前值得比較的幾個位置</p>
+          <h2>USDC Opportunities</h2>
+          <p>比較目前 USDC 部位與市場上的其他選擇</p>
         </div>
-        <div class="grid grid-3">
-          <SummaryCard
-            v-for="item in dashboard.market"
-            :key="item.label"
-            :label="item.label"
-            :value="item.value"
-            :note="item.note"
+
+        <div class="current-position">
+          <p class="current-label">目前部位</p>
+          <p class="current-value">
+            {{ usdcPosition.amount.toLocaleString('en-US') }} {{ usdcPosition.asset }}
+            · {{ usdcPosition.protocol }}
+            · APR {{ formatApr(usdcPosition.apr) }}
+            · {{ usdcPosition.risk }} 風險
+          </p>
+        </div>
+
+        <ul class="opportunities">
+          <OpportunityRow
+            v-for="row in opportunityRows"
+            :key="row.protocol"
+            :protocol="row.protocol"
+            :apr-label="row.aprLabel"
+            :tvl-label="row.tvlLabel"
+            :risk-label="row.riskLabel"
+            :is-current="row.isCurrent"
+            :apr-diff-label="row.aprDiffLabel"
+            :annual-diff-label="row.annualDiffLabel"
           />
+        </ul>
+
+        <div class="move-decision">
+          <p class="move-question">{{ moveDecision.question }}</p>
+          <p class="move-answer">{{ moveDecision.answer }}</p>
+          <ul class="move-reasons">
+            <li
+              v-for="reason in moveDecision.reasons"
+              :key="reason"
+            >
+              {{ reason }}
+            </li>
+          </ul>
+          <p class="move-note">{{ moveDecision.estimateNote }}</p>
+          <p class="move-disclaimer">{{ moveDecision.disclaimer }}</p>
         </div>
       </section>
 
@@ -353,8 +494,91 @@ const { toggleLabel, toggleTheme } = useTheme()
   grid-template-columns: repeat(4, 1fr);
 }
 
-.grid-3 {
-  grid-template-columns: repeat(3, 1fr);
+.current-position {
+  margin-top: 20px;
+  padding: 18px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.current-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.current-value {
+  margin: 8px 0 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.opportunities {
+  margin: 16px 0 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  list-style: none;
+  overflow: hidden;
+}
+
+.move-decision {
+  margin-top: 16px;
+  padding: 24px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.move-question {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.move-answer {
+  margin: 10px 0 0;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.move-reasons {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.move-reasons li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: var(--color-text-body);
+}
+
+.move-reasons li::before {
+  position: absolute;
+  left: 0;
+  color: var(--color-bullet);
+  content: '·';
+}
+
+.move-note,
+.move-disclaimer {
+  margin: 14px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+
+.move-disclaimer {
+  margin-top: 8px;
 }
 
 .events {
@@ -420,8 +644,7 @@ const { toggleLabel, toggleTheme } = useTheme()
 }
 
 @media (max-width: 760px) {
-  .grid-4,
-  .grid-3 {
+  .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -432,11 +655,14 @@ const { toggleLabel, toggleTheme } = useTheme()
   .hero-headline {
     font-size: 1.625rem;
   }
+
+  .current-value {
+    font-size: 0.975rem;
+  }
 }
 
 @media (max-width: 480px) {
-  .grid-4,
-  .grid-3 {
+  .grid-4 {
     grid-template-columns: 1fr;
   }
 }
