@@ -1,5 +1,8 @@
 import { ProviderError } from '../../providers/errors'
-import { getUsdcMarketOpportunities } from '../../services/usdcMarketService'
+import {
+  getUsdcMarketOpportunities,
+  MarketProvidersUnavailableError
+} from '../../services/usdcMarketService'
 
 export default defineEventHandler(async () => {
   try {
@@ -8,7 +11,8 @@ export default defineEventHandler(async () => {
     const detail = error instanceof Error ? error.message : 'Unknown provider failure'
     console.error('[api/market/usdc] upstream failure', {
       detail,
-      provider: error instanceof ProviderError ? error.provider : 'unknown'
+      provider: error instanceof ProviderError ? error.provider : 'unknown',
+      totalFailure: error instanceof MarketProvidersUnavailableError
     })
 
     throw createError({

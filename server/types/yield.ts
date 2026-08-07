@@ -22,7 +22,7 @@ export interface ObservationDataQuality {
 
 /**
  * MVP integrity guard: current APY vs provider 30-day mean.
- * Does not claim the pool is unsafe — only that the observation is suspect.
+ * DefiLlama observation semantics only — do not apply to Morpho official data.
  */
 export function evaluateObservationDataQuality (
   apy: number,
@@ -73,15 +73,33 @@ export interface YieldOpportunity {
   fetchedAt: string
 }
 
-export interface YieldResponseMeta {
-  source: string
+export type ProviderFetchStatus = 'ok' | 'error'
+
+export interface ProviderFetchMeta {
+  name: string
+  status: ProviderFetchStatus
   /**
-   * Time DeFi OS fetched the provider response.
-   * FreshnessStatus below describes provider-fetch freshness only;
-   * it does not prove the APY observation itself is fresh.
+   * Time DeFi OS fetched this provider response (when status is ok).
+   * Not an upstream pool measurement timestamp.
+   */
+  fetchedAt?: string
+}
+
+export interface YieldResponseMeta {
+  /**
+   * Latest successful DeFi OS provider-fetch timestamp among providers that succeeded.
+   * Not an upstream pool measurement timestamp.
    */
   fetchedAt: string
+  /**
+   * Freshness derived from successful provider-fetch timestamps only.
+   */
   status: FreshnessStatus
+  /**
+   * Aggregate dataset availability per provider.
+   * Per-opportunity provenance remains on each YieldOpportunity.source.
+   */
+  providers: ProviderFetchMeta[]
 }
 
 export interface UsdcMarketResponse {
@@ -106,4 +124,37 @@ export function resolveFreshnessStatus (fetchedAt: string, now = Date.now()): Fr
     return 'stale'
   }
   return 'unavailable'
+}
+
+/**
+ * Aggregate freshness from successful provider fetch timestamps.
+ * Uses the latest successful fetch time.
+ */
+export function resolveAggregateFreshnessStatus (
+  successfulFetchedAt: string[],
+  now = Date.now()
+): { fetchedAt: string, status: FreshnessStatus } {
+  const first = successfulFetchedAt[0]
+  if (first === undefined) {
+    return {
+      fetchedAt: new Date(now).toISOString(),
+      status: 'unavailable'
+    }
+  }
+
+  let latest: string = first
+  let latestMs = Date.parse(latest)
+
+  for (const candidate of successfulFetchedAt.slice(1)) {
+    const candidateMs = Date.parse(candidate)
+    if (!Number.isNaN(candidateMs) && (Number.isNaN(latestMs) || candidateMs > latestMs)) {
+      latest = candidate
+      latestMs = candidateMs
+    }
+  }
+
+  return {
+    fetchedAt: latest,
+    status: resolveFreshnessStatus(latest, now)
+  }
 }
