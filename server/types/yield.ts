@@ -107,6 +107,15 @@ export interface UsdcMarketResponse {
   meta: YieldResponseMeta
 }
 
+/**
+ * Presentation subset of the Market Universe for the homepage Market Dashboard.
+ * Same opportunity + meta shapes as the full Market response.
+ */
+export interface UsdcMarketDashboardResponse {
+  data: YieldOpportunity[]
+  meta: YieldResponseMeta
+}
+
 const FRESH_MS = 15 * 60 * 1000
 const STALE_MS = 60 * 60 * 1000
 

@@ -59,6 +59,44 @@ interface HeroView {
   evidence: string[]
 }
 
+type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
+type RateType = 'APR' | 'APY'
+type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
+type ProviderFetchStatus = 'ok' | 'error'
+
+interface ProviderFetchMeta {
+  name: string
+  status: ProviderFetchStatus
+  fetchedAt?: string
+}
+
+interface YieldOpportunity {
+  protocol: string
+  product: string
+  opportunityType: OpportunityType
+  asset: string
+  chain: string
+  rate: number
+  rateType: RateType
+  tvlUsd: number | null
+  source: string
+  sourceUrl?: string
+  sourcePoolId?: string
+  dataQuality: string
+  fetchedAt: string
+}
+
+interface YieldResponseMeta {
+  fetchedAt: string
+  status: FreshnessStatus
+  providers: ProviderFetchMeta[]
+}
+
+interface UsdcMarketDashboardResponse {
+  data: YieldOpportunity[]
+  meta: YieldResponseMeta
+}
+
 const dashboard: Dashboard = {
   greeting: '早安',
   date: '2026 年 8 月 5 日',
@@ -102,6 +140,10 @@ const usdcPosition: UsdcPosition = {
   risk: 'Low'
 }
 
+/**
+ * Temporary personal-comparison mock only.
+ * Not sourced from the Market Dashboard API.
+ */
 const usdcOpportunities: UsdcOpportunity[] = [
   { protocol: 'Spark', apr: 4.35, tvl: '$4.8B', risk: 'Low', isCurrent: true },
   { protocol: 'Aave', apr: 4.12, tvl: '$18.2B', risk: 'Low' },
@@ -212,6 +254,87 @@ const moveDecision = {
 const isHealthy = hero.level === 'healthy'
 
 const { toggleLabel, toggleTheme } = useTheme()
+
+const {
+  data: marketDashboard,
+  pending: marketPending,
+  error: marketError
+} = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
+
+function opportunityTypeLabel (opportunityType: OpportunityType): string {
+  if (opportunityType === 'LENDING_SUPPLY') {
+    return 'Lending'
+  }
+  if (opportunityType === 'SAVINGS') {
+    return 'Savings'
+  }
+  return 'Vault'
+}
+
+function formatMarketRate (rate: number, rateType: RateType): string {
+  return `${rate.toFixed(2)}% ${rateType}`
+}
+
+function formatCompactUsd (value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return '—'
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(value)
+}
+
+function formatFetchedAt (fetchedAt: string): string {
+  const ms = Date.parse(fetchedAt)
+  if (Number.isNaN(ms)) {
+    return fetchedAt
+  }
+  return new Intl.DateTimeFormat('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(new Date(ms))
+}
+
+const marketRows = computed(() => {
+  const payload = marketDashboard.value
+  if (!payload) {
+    return []
+  }
+
+  return payload.data.map(opportunity => ({
+    key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
+    protocol: opportunity.protocol,
+    product: opportunity.product,
+    typeLabel: opportunityTypeLabel(opportunity.opportunityType),
+    chain: opportunity.chain,
+    rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
+    tvlLabel: formatCompactUsd(opportunity.tvlUsd)
+  }))
+})
+
+const hasPartialProviderFailure = computed(() => {
+  const providers = marketDashboard.value?.meta.providers
+  if (!providers || providers.length === 0) {
+    return false
+  }
+  return providers.some(provider => provider.status === 'error')
+})
+
+const marketFetchedAtLabel = computed(() => {
+  const fetchedAt = marketDashboard.value?.meta.fetchedAt
+  if (!fetchedAt) {
+    return null
+  }
+  return formatFetchedAt(fetchedAt)
+})
 </script>
 
 <template>
@@ -274,8 +397,58 @@ const { toggleLabel, toggleTheme } = useTheme()
 
       <section class="section">
         <div class="section-head">
-          <h2>USDC Opportunities</h2>
-          <p>比較目前 USDC 部位與市場上的其他選擇</p>
+          <h2>USDC 市場</h2>
+          <p>快速了解目前有代表性的 USDC 收益市場</p>
+        </div>
+
+        <p
+          v-if="marketPending"
+          class="market-status"
+        >
+          正在取得 USDC 市場資料…
+        </p>
+
+        <p
+          v-else-if="marketError"
+          class="market-status market-status-error"
+        >
+          目前無法取得 USDC 市場資料。
+        </p>
+
+        <template v-else>
+          <p
+            v-if="hasPartialProviderFailure"
+            class="market-notice"
+          >
+            部分市場資料來源暫時無法更新。
+          </p>
+
+          <ul class="market-list">
+            <MarketOpportunityRow
+              v-for="row in marketRows"
+              :key="row.key"
+              :protocol="row.protocol"
+              :product="row.product"
+              :type-label="row.typeLabel"
+              :chain="row.chain"
+              :rate-label="row.rateLabel"
+              :tvl-label="row.tvlLabel"
+            />
+          </ul>
+
+          <p
+            v-if="marketFetchedAtLabel"
+            class="market-fetched"
+          >
+            資料更新時間 {{ marketFetchedAtLabel }}
+          </p>
+        </template>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>你的 USDC</h2>
+          <p>比較目前 USDC 部位與示意市場選項（暫為示意資料）</p>
         </div>
 
         <div class="current-position">
@@ -510,6 +683,42 @@ const { toggleLabel, toggleTheme } = useTheme()
 
 .grid-4 {
   grid-template-columns: repeat(4, 1fr);
+}
+
+.market-status {
+  margin: 20px 0 0;
+  padding: 18px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  font-size: 0.9375rem;
+  color: var(--color-text-body);
+}
+
+.market-status-error {
+  color: var(--color-text-primary);
+}
+
+.market-notice {
+  margin: 16px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.market-list {
+  margin: 16px 0 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  list-style: none;
+  overflow: hidden;
+}
+
+.market-fetched {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 .current-position {
