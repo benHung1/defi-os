@@ -1,0 +1,50 @@
+:root,
+[data-theme='light'] {
+  --color-background: #faf9f6;
+  --color-surface: #ffffff;
+  --color-text-primary: #1b1b19;
+  --color-text-secondary: #6f6f68;
+  --color-text-muted: #8a8a82;
+  --color-text-body: #4d4d47;
+  --color-border: #e8e8e4;
+  --color-border-soft: #eeeeea;
+  --color-border-subtle: #f0f0ec;
+  --color-mark-bg: #1b1b19;
+  --color-mark-fg: #faf9f6;
+  --color-status-healthy: #3f8f6b;
+  --color-status-attention: #c08a2e;
+  --color-bullet: #b8b8ae;
+}
+
+[data-theme='dark'] {
+  --color-background: #1c1c1a;
+  --color-surface: #262624;
+  --color-text-primary: #ecece8;
+  --color-text-secondary: #a3a39b;
+  --color-text-muted: #8c8c84;
+  --color-text-body: #c4c4bc;
+  --color-border: #3a3a36;
+  --color-border-soft: #333330;
+  --color-border-subtle: #333330;
+  --color-mark-bg: #ecece8;
+  --color-mark-fg: #1c1c1a;
+  --color-status-healthy: #5fa882;
+  --color-status-attention: #d4a54a;
+  --color-bullet: #6e6e66;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
