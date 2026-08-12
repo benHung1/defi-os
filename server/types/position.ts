@@ -1,4 +1,9 @@
-import type { OpportunityType, YieldOpportunity, YieldResponseMeta } from './yield'
+import type {
+  OpportunityType,
+  RateType,
+  YieldOpportunity,
+  YieldResponseMeta
+} from './yield'
 
 /**
  * User's current USDC allocation identity.
@@ -13,8 +18,18 @@ export interface UsdcCurrentPosition {
   amount: number
 }
 
+/**
+ * Market-observed rate for the current position product when present in the Market Universe.
+ * Factual observation only — not a recommendation input.
+ */
+export interface UsdcCurrentPositionRate {
+  rate: number
+  rateType: RateType
+}
+
 export interface UsdcDecisionCandidateResponse {
   currentPosition: UsdcCurrentPosition
+  currentPositionRate: UsdcCurrentPositionRate | null
   candidates: YieldOpportunity[]
   meta: YieldResponseMeta
 }

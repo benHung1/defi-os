@@ -1,9 +1,10 @@
 <script setup lang="ts">
 defineProps<{
   protocol: string
+  product?: string
   aprLabel: string
   tvlLabel: string
-  riskLabel: string
+  metaLabel?: string
   isCurrent: boolean
   aprDiffLabel: string
   annualDiffLabel: string | null
@@ -23,9 +24,15 @@ defineProps<{
           class="badge"
         >目前部位</span>
       </div>
+      <p
+        v-if="product"
+        class="product"
+      >
+        {{ product }}
+      </p>
       <p class="meta">
         <span>TVL {{ tvlLabel }}</span>
-        <span>{{ riskLabel }}</span>
+        <span v-if="metaLabel">{{ metaLabel }}</span>
       </p>
     </div>
 
@@ -76,6 +83,14 @@ defineProps<{
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.product {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-text-body);
+  overflow-wrap: anywhere;
 }
 
 .badge {

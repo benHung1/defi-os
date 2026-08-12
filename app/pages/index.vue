@@ -1,6 +1,5 @@
 <script setup lang="ts">
 type DecisionLevel = 'healthy' | 'attention'
-type RiskLevel = 'Low' | 'Medium'
 
 interface SummaryItem {
   label: string
@@ -16,47 +15,12 @@ interface ChainEvent {
   time: string
 }
 
-interface UsdcPosition {
-  asset: string
-  protocol: string
-  apr: number
-  amount: number
-  risk: RiskLevel
-}
-
-interface UsdcOpportunity {
-  protocol: string
-  apr: number
-  tvl: string
-  risk: RiskLevel
-  isCurrent?: boolean
-}
-
-interface OpportunityView {
-  protocol: string
-  aprLabel: string
-  tvlLabel: string
-  riskLabel: string
-  isCurrent: boolean
-  aprDiffLabel: string
-  annualDiffLabel: string | null
-  aprDiff: number
-}
-
 interface Dashboard {
   greeting: string
   date: string
   portfolio: SummaryItem[]
   events: ChainEvent[]
   updatedAt: string
-}
-
-interface HeroView {
-  level: DecisionLevel
-  question: string
-  headline: string
-  statement: string
-  evidence: string[]
 }
 
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
@@ -97,6 +61,44 @@ interface UsdcMarketDashboardResponse {
   meta: YieldResponseMeta
 }
 
+interface UsdcCurrentPosition {
+  asset: 'USDC'
+  protocol: string
+  product: string
+  opportunityType: OpportunityType
+  chain: string
+  amount: number
+}
+
+interface UsdcCurrentPositionRate {
+  rate: number
+  rateType: RateType
+}
+
+interface UsdcDecisionCandidateResponse {
+  currentPosition: UsdcCurrentPosition
+  currentPositionRate: UsdcCurrentPositionRate | null
+  candidates: YieldOpportunity[]
+  meta: YieldResponseMeta
+}
+
+/**
+ * Temporary current-position fixture until Portfolio Sprint.
+ * Identity aligns with server/api/decision/usdc.get.ts temporaryCurrentPosition.
+ * Not wallet-derived. Not mixed into Decision candidate market data.
+ */
+const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
+  asset: 'USDC',
+  protocol: 'Spark',
+  product: 'Spark Savings USDC',
+  opportunityType: 'SAVINGS',
+  chain: 'Ethereum',
+  amount: 40000
+}
+
+/** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
+const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
+
 const dashboard: Dashboard = {
   greeting: '早安',
   date: '2026 年 8 月 5 日',
@@ -132,134 +134,19 @@ const dashboard: Dashboard = {
   updatedAt: '2026-08-05 16:40'
 }
 
-const usdcPosition: UsdcPosition = {
-  asset: 'USDC',
-  protocol: 'Spark',
-  apr: 4.35,
-  amount: 40000,
-  risk: 'Low'
-}
-
-/**
- * Temporary personal-comparison mock only.
- * Not sourced from the Market Dashboard API.
- */
-const usdcOpportunities: UsdcOpportunity[] = [
-  { protocol: 'Spark', apr: 4.35, tvl: '$4.8B', risk: 'Low', isCurrent: true },
-  { protocol: 'Aave', apr: 4.12, tvl: '$18.2B', risk: 'Low' },
-  { protocol: 'Morpho', apr: 4.92, tvl: '$3.6B', risk: 'Medium' },
-  { protocol: 'Fluid', apr: 5.14, tvl: '$1.9B', risk: 'Medium' }
-]
-
-function formatApr (apr: number): string {
-  return `${apr.toFixed(2)}%`
-}
-
-function formatAprDiff (diff: number, isCurrent: boolean): string {
-  if (isCurrent) {
-    return '目前部位'
-  }
-  const sign = diff > 0 ? '+' : ''
-  return `${sign}${diff.toFixed(2)}% vs 目前`
-}
-
-function formatAnnualDiff (amount: number, aprDiff: number, isCurrent: boolean): string | null {
-  if (isCurrent || aprDiff === 0) {
-    return null
-  }
-  const yearly = Math.round(amount * (aprDiff / 100))
-  const sign = yearly > 0 ? '+' : ''
-  return `約 ${sign}${yearly.toLocaleString('en-US')} USDC / 年`
-}
-
-const opportunityRows: OpportunityView[] = usdcOpportunities.map((item) => {
-  const isCurrent = item.isCurrent === true
-  const aprDiff = Number((item.apr - usdcPosition.apr).toFixed(2))
-
-  return {
-    protocol: item.protocol,
-    aprLabel: formatApr(item.apr),
-    tvlLabel: item.tvl,
-    riskLabel: `${item.risk} 風險`,
-    isCurrent,
-    aprDiffLabel: formatAprDiff(aprDiff, isCurrent),
-    annualDiffLabel: formatAnnualDiff(usdcPosition.amount, aprDiff, isCurrent),
-    aprDiff
-  }
-})
-
-function getOpportunityRow (protocol: string): OpportunityView {
-  const row = opportunityRows.find(item => item.protocol === protocol)
-  if (!row) {
-    throw new Error(`Missing opportunity row: ${protocol}`)
-  }
-  return row
-}
-
-function formatSignedAprDiff (diff: number): string {
+function formatSignedRateDiff (diff: number): string {
   const sign = diff > 0 ? '+' : ''
   return `${sign}${diff.toFixed(2)}%`
 }
 
-function annualYieldUsdc (aprDiff: number): number {
-  return Math.round(usdcPosition.amount * (aprDiff / 100))
+function formatAnnualDiff (amount: number, rateDiff: number): string | null {
+  if (rateDiff === 0) {
+    return null
+  }
+  const yearly = Math.round(amount * (rateDiff / 100))
+  const sign = yearly > 0 ? '+' : ''
+  return `約 ${sign}${yearly.toLocaleString('en-US')} USDC / 年`
 }
-
-const morphoRow = getOpportunityRow('Morpho')
-const fluidRow = getOpportunityRow('Fluid')
-const morphoAnnualUsdc = annualYieldUsdc(morphoRow.aprDiff)
-const fluidAnnualUsdc = annualYieldUsdc(fluidRow.aprDiff)
-const annualYieldLow = Math.min(morphoAnnualUsdc, fluidAnnualUsdc)
-const annualYieldHigh = Math.max(morphoAnnualUsdc, fluidAnnualUsdc)
-
-const morphoOpportunity = usdcOpportunities.find(item => item.protocol === 'Morpho')
-const fluidOpportunity = usdcOpportunities.find(item => item.protocol === 'Fluid')
-
-if (!morphoOpportunity || !fluidOpportunity) {
-  throw new Error('Missing Morpho or Fluid opportunity source data')
-}
-
-const higherYieldRiskLabel = morphoOpportunity.risk === fluidOpportunity.risk
-  ? `${morphoOpportunity.risk} Risk`
-  : `${morphoOpportunity.risk} / ${fluidOpportunity.risk} Risk`
-
-// Mock conclusion for this task — not a Decision Engine rule.
-const decisionConclusion = '目前不需要調整。'
-
-const hero: HeroView = {
-  level: 'healthy',
-  question: '今天需要做什麼？',
-  headline: `目前不需要調整 ${usdcPosition.asset} 配置`,
-  statement: `${usdcPosition.protocol} 目前 APR ${formatApr(usdcPosition.apr)}，市場上雖有更高收益選項，但差距暫時不足以支持搬倉。`,
-  evidence: [
-    `目前 ${usdcPosition.amount.toLocaleString('en-US')} ${usdcPosition.asset} 位於 ${usdcPosition.protocol}`,
-    `Morpho 約高 ${formatSignedAprDiff(morphoRow.aprDiff)}，Fluid 約高 ${formatSignedAprDiff(fluidRow.aprDiff)}`,
-    `較高收益選項目前為 ${higherYieldRiskLabel}`
-  ]
-}
-
-const moveDecision = {
-  question: '值得搬嗎？',
-  answer: decisionConclusion,
-  reasons: [
-    `Morpho 只比目前部位高 ${formatSignedAprDiff(morphoRow.aprDiff)} APR`,
-    `Fluid 比目前部位高 ${formatSignedAprDiff(fluidRow.aprDiff)} APR`,
-    `較高收益的選項目前協議風險也較高（${morphoOpportunity.risk}）`,
-    `以 ${usdcPosition.amount.toLocaleString('en-US')} USDC 估算，額外年化收益約 ${annualYieldLow.toLocaleString('en-US')}–${annualYieldHigh.toLocaleString('en-US')} USDC，尚不足以支持現在搬倉`
-  ],
-  estimateNote: '上述金額為依目前 APR 差距推估的年化差額，不是保證收益。',
-  disclaimer: '此比較僅依示意資料說明差異，不構成投資建議。'
-}
-
-const isHealthy = hero.level === 'healthy'
-
-const { toggleLabel, toggleTheme } = useTheme()
-
-const {
-  data: marketDashboard,
-  pending: marketPending,
-  error: marketError
-} = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
 
 function opportunityTypeLabel (opportunityType: OpportunityType): string {
   if (opportunityType === 'LENDING_SUPPLY') {
@@ -303,6 +190,20 @@ function formatFetchedAt (fetchedAt: string): string {
   }).format(new Date(ms))
 }
 
+const { toggleLabel, toggleTheme } = useTheme()
+
+const {
+  data: marketDashboard,
+  pending: marketPending,
+  error: marketError
+} = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
+
+const {
+  data: decisionPayload,
+  pending: decisionPending,
+  error: decisionError
+} = await useFetch<UsdcDecisionCandidateResponse>('/api/decision/usdc')
+
 const marketRows = computed(() => {
   const payload = marketDashboard.value
   if (!payload) {
@@ -335,6 +236,181 @@ const marketFetchedAtLabel = computed(() => {
   }
   return formatFetchedAt(fetchedAt)
 })
+
+const displayPosition = computed(() => {
+  return decisionPayload.value?.currentPosition ?? CURRENT_POSITION_FIXTURE
+})
+
+const currentPositionRate = computed(() => {
+  return decisionPayload.value?.currentPositionRate ?? null
+})
+
+const decisionCandidates = computed(() => {
+  return decisionPayload.value?.candidates ?? []
+})
+
+const higherYieldCandidates = computed(() => {
+  const currentRate = currentPositionRate.value?.rate
+  if (currentRate === undefined || currentRate === null) {
+    return []
+  }
+
+  return decisionCandidates.value
+    .filter(candidate => Number.isFinite(candidate.rate) && candidate.rate > currentRate)
+    .slice()
+    .sort((left, right) => {
+      const rateDiff = right.rate - left.rate
+      if (rateDiff !== 0) {
+        return rateDiff
+      }
+      return (right.tvlUsd ?? -1) - (left.tvlUsd ?? -1)
+    })
+})
+
+const personalComparisonRows = computed(() => {
+  const position = displayPosition.value
+  const currentRate = currentPositionRate.value?.rate
+  if (currentRate === undefined || currentRate === null) {
+    return []
+  }
+
+  return higherYieldCandidates.value
+    .slice(0, PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT)
+    .map((candidate) => {
+      const rateDiff = Number((candidate.rate - currentRate).toFixed(2))
+      return {
+        key: `${candidate.protocol}:${candidate.product}:${candidate.sourcePoolId ?? ''}`,
+        protocol: candidate.protocol,
+        product: candidate.product,
+        aprLabel: formatMarketRate(candidate.rate, candidate.rateType),
+        tvlLabel: formatCompactUsd(candidate.tvlUsd),
+        metaLabel: `${opportunityTypeLabel(candidate.opportunityType)} · ${candidate.chain}`,
+        isCurrent: false,
+        aprDiffLabel: `${formatSignedRateDiff(rateDiff)} vs 目前`,
+        annualDiffLabel: formatAnnualDiff(position.amount, rateDiff)
+      }
+    })
+})
+
+const highestObservedCandidate = computed(() => {
+  if (decisionCandidates.value.length === 0) {
+    return null
+  }
+
+  return decisionCandidates.value.reduce((best, candidate) => {
+    if (candidate.rate > best.rate) {
+      return candidate
+    }
+    return best
+  })
+})
+
+const hero = computed(() => {
+  const position = displayPosition.value
+  const rate = currentPositionRate.value
+  const higherCount = higherYieldCandidates.value.length
+  const highest = highestObservedCandidate.value
+  const level: DecisionLevel = higherCount > 0 ? 'attention' : 'healthy'
+
+  if (!rate) {
+    return {
+      level: 'attention' as DecisionLevel,
+      question: '今天有什麼可觀察的差異？',
+      headline: `目前部位：${position.protocol} ${position.product}`,
+      statement: '已取得候選資料，但暫時無法對應目前部位的市場觀察利率，因此尚不能計算與市場的差距。',
+      evidence: [
+        `目前 ${position.amount.toLocaleString('en-US')} ${position.asset}（示意部位，非錢包讀取）`,
+        `候選機會 ${decisionCandidates.value.length} 筆`,
+        '部位利率需待 Portfolio 或市場對應完成後才能比較'
+      ]
+    }
+  }
+
+  const evidence = [
+    `目前 ${position.amount.toLocaleString('en-US')} ${position.asset} 位於 ${position.protocol} · ${position.product}（示意部位）`,
+    `目前部位市場觀察利率 ${formatMarketRate(rate.rate, rate.rateType)}`,
+    `目前有 ${higherCount} 個高於目前部位的候選機會`
+  ]
+
+  if (highest) {
+    evidence.push(
+      `全候選中最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
+    )
+  }
+
+  if (higherCount > 0) {
+    const top = higherYieldCandidates.value[0]
+    if (top) {
+      const diff = Number((top.rate - rate.rate).toFixed(2))
+      evidence.push(
+        `差距最大的較高收益候選：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)} vs 目前`
+      )
+    }
+  }
+
+  return {
+    level,
+    question: '今天有什麼可觀察的差異？',
+    headline: higherCount > 0
+      ? `目前觀察到 ${higherCount} 個高於你目前部位的 USDC 選項`
+      : `目前未觀察到高於 ${position.protocol} 部位的 USDC 選項`,
+    statement: higherCount > 0
+      ? '以下為事實比較，不是搬倉建議。完整 Decision Engine 尚未上線。'
+      : `以目前示意部位與市場候選比較，尚未看到高於 ${formatMarketRate(rate.rate, rate.rateType)} 的選項。`,
+    evidence
+  }
+})
+
+const observationSummary = computed(() => {
+  const position = displayPosition.value
+  const rate = currentPositionRate.value
+  const higherCount = higherYieldCandidates.value.length
+  const highest = highestObservedCandidate.value
+  const reasons: string[] = []
+
+  if (!rate) {
+    return {
+      question: '市場差異觀察',
+      answer: '目前無法計算與部位的利率差距',
+      reasons: [
+        'Decision API 已回傳候選，但目前部位缺少對應的市場觀察利率',
+        `候選機會共 ${decisionCandidates.value.length} 筆`
+      ],
+      estimateNote: '年化差額需在部位利率可用後才能估算。',
+      disclaimer: '此區塊僅呈現事實觀察，不構成投資建議，也不是搬倉指令。'
+    }
+  }
+
+  if (highest) {
+    reasons.push(
+      `全候選最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
+    )
+  }
+
+  reasons.push(`高於目前部位的候選：${higherCount} 個（共 ${decisionCandidates.value.length} 個候選）`)
+
+  for (const row of personalComparisonRows.value.slice(0, 3)) {
+    reasons.push(`${row.protocol} ${row.product} ${row.aprDiffLabel}`)
+  }
+
+  if (higherCount > PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT) {
+    reasons.push(
+      `列表僅顯示較高收益候選前 ${PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT} 筆，供快速觀察`
+    )
+  }
+
+  return {
+    question: '市場差異觀察',
+    answer: higherCount > 0
+      ? `目前有 ${higherCount} 個高於目前部位的候選`
+      : '目前沒有高於目前部位的候選',
+    reasons,
+    estimateNote: `年化差額依示意部位 ${position.amount.toLocaleString('en-US')} USDC 與利率差估算，不是保證收益。`,
+    disclaimer: '此比較僅呈現事實差異，不構成投資建議，亦不代表系統已做出搬倉推薦。'
+  }
+})
+
+const isHealthy = computed(() => hero.value.level === 'healthy')
 </script>
 
 <template>
@@ -362,21 +438,42 @@ const marketFetchedAtLabel = computed(() => {
         class="hero"
         :class="isHealthy ? 'hero-healthy' : 'hero-attention'"
       >
-        <p class="hero-question">{{ hero.question }}</p>
-        <h1 class="hero-headline">
-          <span class="hero-dot">{{ isHealthy ? '🟢' : '🟡' }}</span>
-          {{ hero.headline }}
-        </h1>
-        <p class="hero-statement">{{ hero.statement }}</p>
+        <template v-if="decisionPending">
+          <p class="hero-question">今天有什麼可觀察的差異？</p>
+          <h1 class="hero-headline">正在取得個人 USDC 比較資料…</h1>
+          <p class="hero-statement">
+            正在載入 Decision Candidate 資料，請稍候。
+          </p>
+        </template>
 
-        <ul class="evidence">
-          <li
-            v-for="item in hero.evidence"
-            :key="item"
-          >
-            {{ item }}
-          </li>
-        </ul>
+        <template v-else-if="decisionError">
+          <p class="hero-question">今天有什麼可觀察的差異？</p>
+          <h1 class="hero-headline">
+            <span class="hero-dot">🟡</span>
+            目前無法取得個人 USDC 比較資料
+          </h1>
+          <p class="hero-statement">
+            Decision Candidate API 暫時無法使用。下方市場區塊仍可能獨立可用。
+          </p>
+        </template>
+
+        <template v-else>
+          <p class="hero-question">{{ hero.question }}</p>
+          <h1 class="hero-headline">
+            <span class="hero-dot">{{ isHealthy ? '🟢' : '🟡' }}</span>
+            {{ hero.headline }}
+          </h1>
+          <p class="hero-statement">{{ hero.statement }}</p>
+
+          <ul class="evidence">
+            <li
+              v-for="item in hero.evidence"
+              :key="item"
+            >
+              {{ item }}
+            </li>
+          </ul>
+        </template>
       </section>
 
       <section class="section">
@@ -448,47 +545,83 @@ const marketFetchedAtLabel = computed(() => {
       <section class="section">
         <div class="section-head">
           <h2>你的 USDC</h2>
-          <p>比較目前 USDC 部位與示意市場選項（暫為示意資料）</p>
+          <p>以示意目前部位，對照真實 Decision Candidate 資料</p>
         </div>
 
         <div class="current-position">
-          <p class="current-label">目前部位</p>
+          <p class="current-label">目前部位（示意 fixture，非錢包讀取）</p>
           <p class="current-value">
-            {{ usdcPosition.amount.toLocaleString('en-US') }} {{ usdcPosition.asset }}
-            · {{ usdcPosition.protocol }}
-            · APR {{ formatApr(usdcPosition.apr) }}
-            · {{ usdcPosition.risk }} 風險
+            {{ displayPosition.amount.toLocaleString('en-US') }} {{ displayPosition.asset }}
+            · {{ displayPosition.protocol }}
+            · {{ displayPosition.product }}
+            <template v-if="currentPositionRate">
+              · {{ formatMarketRate(currentPositionRate.rate, currentPositionRate.rateType) }}
+            </template>
+            <template v-else>
+              · 利率待對應
+            </template>
           </p>
         </div>
 
-        <ul class="opportunities">
-          <OpportunityRow
-            v-for="row in opportunityRows"
-            :key="row.protocol"
-            :protocol="row.protocol"
-            :apr-label="row.aprLabel"
-            :tvl-label="row.tvlLabel"
-            :risk-label="row.riskLabel"
-            :is-current="row.isCurrent"
-            :apr-diff-label="row.aprDiffLabel"
-            :annual-diff-label="row.annualDiffLabel"
-          />
-        </ul>
+        <p
+          v-if="decisionPending"
+          class="market-status"
+        >
+          正在取得 Decision Candidate 資料…
+        </p>
 
-        <div class="move-decision">
-          <p class="move-question">{{ moveDecision.question }}</p>
-          <p class="move-answer">{{ moveDecision.answer }}</p>
-          <ul class="move-reasons">
-            <li
-              v-for="reason in moveDecision.reasons"
-              :key="reason"
-            >
-              {{ reason }}
-            </li>
+        <p
+          v-else-if="decisionError"
+          class="market-status market-status-error"
+        >
+          目前無法取得個人 USDC 比較資料。
+        </p>
+
+        <p
+          v-else-if="!currentPositionRate"
+          class="market-status"
+        >
+          已取得候選資料，但目前部位缺少市場觀察利率，暫不顯示差距列表。
+        </p>
+
+        <p
+          v-else-if="personalComparisonRows.length === 0"
+          class="market-status"
+        >
+          目前沒有高於你目前部位的候選機會。
+        </p>
+
+        <template v-else>
+          <ul class="opportunities">
+            <OpportunityRow
+              v-for="row in personalComparisonRows"
+              :key="row.key"
+              :protocol="row.protocol"
+              :product="row.product"
+              :apr-label="row.aprLabel"
+              :tvl-label="row.tvlLabel"
+              :meta-label="row.metaLabel"
+              :is-current="row.isCurrent"
+              :apr-diff-label="row.aprDiffLabel"
+              :annual-diff-label="row.annualDiffLabel"
+            />
           </ul>
-          <p class="move-note">{{ moveDecision.estimateNote }}</p>
-          <p class="move-disclaimer">{{ moveDecision.disclaimer }}</p>
-        </div>
+
+          <div class="move-decision">
+            <p class="move-question">{{ observationSummary.question }}</p>
+            <p class="move-answer">{{ observationSummary.answer }}</p>
+            <ul class="move-reasons">
+              <li
+                v-for="reason in observationSummary.reasons"
+                :key="reason"
+              >
+                {{ reason }}
+              </li>
+            </ul>
+            <p class="move-note">{{ observationSummary.estimateNote }}</p>
+            <p class="move-disclaimer">{{ observationSummary.disclaimer }}</p>
+          </div>
+        </template>
       </section>
 
       <section class="section">

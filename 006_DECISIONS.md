@@ -117,6 +117,19 @@ Do not create duplicate documentation systems.
 
 ---
 
+## DEC-011 — Personal USDC Comparison Uses Real Decision Candidates
+
+Personal USDC market comparison uses real Decision API candidates while the current user position remains a temporary mock/fixture until the Portfolio Sprint.
+
+Rules:
+
+- Decision Candidate market data comes from `GET /api/decision/usdc`
+- Current position identity may remain a temporary fixture and must not be presented as wallet-derived
+- Comparison may show factual rate deltas
+- This does not authorize recommendation, MOVE/HOLD, safety scoring, or a Decision Engine
+
+---
+
 # Pending Decisions
 
 Decide only when the related work begins:
