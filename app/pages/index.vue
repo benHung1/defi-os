@@ -249,14 +249,37 @@ const decisionCandidates = computed(() => {
   return decisionPayload.value?.candidates ?? []
 })
 
-const higherYieldCandidates = computed(() => {
-  const currentRate = currentPositionRate.value?.rate
-  if (currentRate === undefined || currentRate === null) {
+/**
+ * Personal rate comparison is allowed only when rateType matches.
+ * Do not convert APR↔APY; exclude mismatched types from numeric comparison.
+ */
+function isRateTypeComparable (
+  candidate: YieldOpportunity,
+  positionRate: UsdcCurrentPositionRate
+): boolean {
+  return candidate.rateType === positionRate.rateType
+    && Number.isFinite(candidate.rate)
+}
+
+const rateComparableCandidates = computed(() => {
+  const positionRate = currentPositionRate.value
+  if (!positionRate) {
     return []
   }
 
-  return decisionCandidates.value
-    .filter(candidate => Number.isFinite(candidate.rate) && candidate.rate > currentRate)
+  return decisionCandidates.value.filter(candidate =>
+    isRateTypeComparable(candidate, positionRate)
+  )
+})
+
+const higherYieldCandidates = computed(() => {
+  const positionRate = currentPositionRate.value
+  if (!positionRate) {
+    return []
+  }
+
+  return rateComparableCandidates.value
+    .filter(candidate => candidate.rate > positionRate.rate)
     .slice()
     .sort((left, right) => {
       const rateDiff = right.rate - left.rate
@@ -269,15 +292,15 @@ const higherYieldCandidates = computed(() => {
 
 const personalComparisonRows = computed(() => {
   const position = displayPosition.value
-  const currentRate = currentPositionRate.value?.rate
-  if (currentRate === undefined || currentRate === null) {
+  const positionRate = currentPositionRate.value
+  if (!positionRate) {
     return []
   }
 
   return higherYieldCandidates.value
     .slice(0, PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT)
     .map((candidate) => {
-      const rateDiff = Number((candidate.rate - currentRate).toFixed(2))
+      const rateDiff = Number((candidate.rate - positionRate.rate).toFixed(2))
       return {
         key: `${candidate.protocol}:${candidate.product}:${candidate.sourcePoolId ?? ''}`,
         protocol: candidate.protocol,
@@ -292,12 +315,16 @@ const personalComparisonRows = computed(() => {
     })
 })
 
-const highestObservedCandidate = computed(() => {
-  if (decisionCandidates.value.length === 0) {
+/**
+ * Highest observed rate among candidates comparable to the current position rateType only.
+ */
+const highestComparableCandidate = computed(() => {
+  const comparable = rateComparableCandidates.value
+  if (comparable.length === 0) {
     return null
   }
 
-  return decisionCandidates.value.reduce((best, candidate) => {
+  return comparable.reduce((best, candidate) => {
     if (candidate.rate > best.rate) {
       return candidate
     }
@@ -309,12 +336,13 @@ const hero = computed(() => {
   const position = displayPosition.value
   const rate = currentPositionRate.value
   const higherCount = higherYieldCandidates.value.length
-  const highest = highestObservedCandidate.value
-  const level: DecisionLevel = higherCount > 0 ? 'attention' : 'healthy'
+  const highest = highestComparableCandidate.value
+  // Neutral observational state only — higher yield does not imply attention.
+  const level: DecisionLevel = 'healthy'
 
   if (!rate) {
     return {
-      level: 'attention' as DecisionLevel,
+      level,
       question: '今天有什麼可觀察的差異？',
       headline: `目前部位：${position.protocol} ${position.product}`,
       statement: '已取得候選資料，但暫時無法對應目前部位的市場觀察利率，因此尚不能計算與市場的差距。',
@@ -329,12 +357,12 @@ const hero = computed(() => {
   const evidence = [
     `目前 ${position.amount.toLocaleString('en-US')} ${position.asset} 位於 ${position.protocol} · ${position.product}（示意部位）`,
     `目前部位市場觀察利率 ${formatMarketRate(rate.rate, rate.rateType)}`,
-    `目前有 ${higherCount} 個高於目前部位的候選機會`
+    `可直接比較（同 ${rate.rateType}）且高於目前部位的候選：${higherCount} 個`
   ]
 
   if (highest) {
     evidence.push(
-      `全候選中最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
+      `同 ${rate.rateType} 候選中最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
     )
   }
 
@@ -343,7 +371,7 @@ const hero = computed(() => {
     if (top) {
       const diff = Number((top.rate - rate.rate).toFixed(2))
       evidence.push(
-        `差距最大的較高收益候選：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)} vs 目前`
+        `同單位下差距最大的較高收益候選：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)} vs 目前`
       )
     }
   }
@@ -352,11 +380,11 @@ const hero = computed(() => {
     level,
     question: '今天有什麼可觀察的差異？',
     headline: higherCount > 0
-      ? `目前觀察到 ${higherCount} 個高於你目前部位的 USDC 選項`
-      : `目前未觀察到高於 ${position.protocol} 部位的 USDC 選項`,
+      ? `目前觀察到 ${higherCount} 個同單位下高於你目前部位的 USDC 選項`
+      : `目前未觀察到同單位下高於 ${position.protocol} 部位的 USDC 選項`,
     statement: higherCount > 0
       ? '以下為事實比較，不是搬倉建議。完整 Decision Engine 尚未上線。'
-      : `以目前示意部位與市場候選比較，尚未看到高於 ${formatMarketRate(rate.rate, rate.rateType)} 的選項。`,
+      : `以目前示意部位與可比較候選對照，尚未看到高於 ${formatMarketRate(rate.rate, rate.rateType)} 的選項。`,
     evidence
   }
 })
@@ -365,7 +393,7 @@ const observationSummary = computed(() => {
   const position = displayPosition.value
   const rate = currentPositionRate.value
   const higherCount = higherYieldCandidates.value.length
-  const highest = highestObservedCandidate.value
+  const highest = highestComparableCandidate.value
   const reasons: string[] = []
 
   if (!rate) {
@@ -383,11 +411,13 @@ const observationSummary = computed(() => {
 
   if (highest) {
     reasons.push(
-      `全候選最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
+      `同 ${rate.rateType} 候選最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
     )
   }
 
-  reasons.push(`高於目前部位的候選：${higherCount} 個（共 ${decisionCandidates.value.length} 個候選）`)
+  reasons.push(
+    `同 ${rate.rateType} 且高於目前部位的候選：${higherCount} 個（全部候選 ${decisionCandidates.value.length} 個；不同 rateType 不直接比較）`
+  )
 
   for (const row of personalComparisonRows.value.slice(0, 3)) {
     reasons.push(`${row.protocol} ${row.product} ${row.aprDiffLabel}`)
@@ -402,10 +432,10 @@ const observationSummary = computed(() => {
   return {
     question: '市場差異觀察',
     answer: higherCount > 0
-      ? `目前有 ${higherCount} 個高於目前部位的候選`
-      : '目前沒有高於目前部位的候選',
+      ? `目前有 ${higherCount} 個同單位下高於目前部位的候選`
+      : '目前沒有同單位下高於目前部位的候選',
     reasons,
-    estimateNote: `年化差額依示意部位 ${position.amount.toLocaleString('en-US')} USDC 與利率差估算，不是保證收益。`,
+    estimateNote: `年化差額依示意部位 ${position.amount.toLocaleString('en-US')} USDC 與同單位利率差估算，不是保證收益。`,
     disclaimer: '此比較僅呈現事實差異，不構成投資建議，亦不代表系統已做出搬倉推薦。'
   }
 })
@@ -588,7 +618,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           v-else-if="personalComparisonRows.length === 0"
           class="market-status"
         >
-          目前沒有高於你目前部位的候選機會。
+          目前沒有同單位下高於你目前部位的候選機會。
         </p>
 
         <template v-else>

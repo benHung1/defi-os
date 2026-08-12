@@ -125,7 +125,9 @@ Rules:
 
 - Decision Candidate market data comes from `GET /api/decision/usdc`
 - Current position identity may remain a temporary fixture and must not be presented as wallet-derived
-- Comparison may show factual rate deltas
+- Numeric personal rate comparison (higher/lower, sort, delta) is allowed only when `candidate.rateType === currentPositionRate.rateType`; do not convert APR↔APY
+- Comparison may show factual rate deltas for comparable candidates only
+- Higher yield alone must not set Hero attention/warning state
 - This does not authorize recommendation, MOVE/HOLD, safety scoring, or a Decision Engine
 
 ---
