@@ -315,128 +315,51 @@ const personalComparisonRows = computed(() => {
     })
 })
 
-/**
- * Highest observed rate among candidates comparable to the current position rateType only.
- */
-const highestComparableCandidate = computed(() => {
-  const comparable = rateComparableCandidates.value
-  if (comparable.length === 0) {
-    return null
-  }
-
-  return comparable.reduce((best, candidate) => {
-    if (candidate.rate > best.rate) {
-      return candidate
-    }
-    return best
-  })
-})
-
 const hero = computed(() => {
   const position = displayPosition.value
   const rate = currentPositionRate.value
   const higherCount = higherYieldCandidates.value.length
-  const highest = highestComparableCandidate.value
   // Neutral observational state only — higher yield does not imply attention.
   const level: DecisionLevel = 'healthy'
 
   if (!rate) {
     return {
       level,
-      question: '今天有什麼可觀察的差異？',
+      question: '今天有什麼需要我注意？',
       headline: `目前部位：${position.protocol} ${position.product}`,
       statement: '已取得候選資料，但暫時無法對應目前部位的市場觀察利率，因此尚不能計算與市場的差距。',
       evidence: [
         `目前 ${position.amount.toLocaleString('en-US')} ${position.asset}（示意部位，非錢包讀取）`,
-        `候選機會 ${decisionCandidates.value.length} 筆`,
-        '部位利率需待 Portfolio 或市場對應完成後才能比較'
+        '部位利率需待對應後才能比較'
       ]
     }
   }
 
   const evidence = [
-    `目前 ${position.amount.toLocaleString('en-US')} ${position.asset} 位於 ${position.protocol} · ${position.product}（示意部位）`,
-    `目前部位市場觀察利率 ${formatMarketRate(rate.rate, rate.rateType)}`,
-    `可直接比較（同 ${rate.rateType}）且高於目前部位的候選：${higherCount} 個`
+    `目前部位觀察利率 ${formatMarketRate(rate.rate, rate.rateType)}`,
+    `同 ${rate.rateType} 且高於目前部位的候選：${higherCount} 個`
   ]
-
-  if (highest) {
-    evidence.push(
-      `同 ${rate.rateType} 候選中最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
-    )
-  }
 
   if (higherCount > 0) {
     const top = higherYieldCandidates.value[0]
     if (top) {
       const diff = Number((top.rate - rate.rate).toFixed(2))
       evidence.push(
-        `同單位下差距最大的較高收益候選：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)} vs 目前`
+        `目前觀察到的最大差距：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)}`
       )
     }
   }
 
   return {
     level,
-    question: '今天有什麼可觀察的差異？',
+    question: '今天有什麼需要我注意？',
     headline: higherCount > 0
       ? `目前觀察到 ${higherCount} 個同單位下高於你目前部位的 USDC 選項`
       : `目前未觀察到同單位下高於 ${position.protocol} 部位的 USDC 選項`,
     statement: higherCount > 0
-      ? '以下為事實比較，不是搬倉建議。完整 Decision Engine 尚未上線。'
+      ? '以下為事實摘要，詳細比較見下方。這不是搬倉建議。'
       : `以目前示意部位與可比較候選對照，尚未看到高於 ${formatMarketRate(rate.rate, rate.rateType)} 的選項。`,
     evidence
-  }
-})
-
-const observationSummary = computed(() => {
-  const position = displayPosition.value
-  const rate = currentPositionRate.value
-  const higherCount = higherYieldCandidates.value.length
-  const highest = highestComparableCandidate.value
-  const reasons: string[] = []
-
-  if (!rate) {
-    return {
-      question: '市場差異觀察',
-      answer: '目前無法計算與部位的利率差距',
-      reasons: [
-        'Decision API 已回傳候選，但目前部位缺少對應的市場觀察利率',
-        `候選機會共 ${decisionCandidates.value.length} 筆`
-      ],
-      estimateNote: '年化差額需在部位利率可用後才能估算。',
-      disclaimer: '此區塊僅呈現事實觀察，不構成投資建議，也不是搬倉指令。'
-    }
-  }
-
-  if (highest) {
-    reasons.push(
-      `同 ${rate.rateType} 候選最高觀察利率：${highest.protocol} ${highest.product} ${formatMarketRate(highest.rate, highest.rateType)}`
-    )
-  }
-
-  reasons.push(
-    `同 ${rate.rateType} 且高於目前部位的候選：${higherCount} 個（全部候選 ${decisionCandidates.value.length} 個；不同 rateType 不直接比較）`
-  )
-
-  for (const row of personalComparisonRows.value.slice(0, 3)) {
-    reasons.push(`${row.protocol} ${row.product} ${row.aprDiffLabel}`)
-  }
-
-  if (higherCount > PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT) {
-    reasons.push(
-      `列表僅顯示較高收益候選前 ${PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT} 筆，供快速觀察`
-    )
-  }
-
-  return {
-    question: '市場差異觀察',
-    answer: higherCount > 0
-      ? `目前有 ${higherCount} 個同單位下高於目前部位的候選`
-      : '目前沒有同單位下高於目前部位的候選',
-    reasons,
-    estimateNote: `年化差額依示意部位 ${position.amount.toLocaleString('en-US')} USDC 與同單位利率差估算，不是保證收益。`,
-    disclaimer: '此比較僅呈現事實差異，不構成投資建議，亦不代表系統已做出搬倉推薦。'
   }
 })
 
@@ -469,21 +392,21 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         :class="isHealthy ? 'hero-healthy' : 'hero-attention'"
       >
         <template v-if="decisionPending">
-          <p class="hero-question">今天有什麼可觀察的差異？</p>
+          <p class="hero-question">今天有什麼需要我注意？</p>
           <h1 class="hero-headline">正在取得個人 USDC 比較資料…</h1>
           <p class="hero-statement">
-            正在載入 Decision Candidate 資料，請稍候。
+            正在載入比較資料，請稍候。
           </p>
         </template>
 
         <template v-else-if="decisionError">
-          <p class="hero-question">今天有什麼可觀察的差異？</p>
+          <p class="hero-question">今天有什麼需要我注意？</p>
           <h1 class="hero-headline">
             <span class="hero-dot">🟡</span>
             目前無法取得個人 USDC 比較資料
           </h1>
           <p class="hero-statement">
-            Decision Candidate API 暫時無法使用。下方市場區塊仍可能獨立可用。
+            暫時無法載入個人比較資料。下方市場區塊仍可能獨立可用。
           </p>
         </template>
 
@@ -509,7 +432,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
       <section class="section">
         <div class="section-head">
           <h2>投資組合</h2>
-          <p>我的資金分布在哪裡</p>
+          <p>我的資產現在在哪裡？</p>
         </div>
         <div class="grid grid-4">
           <SummaryCard
@@ -524,8 +447,85 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 
       <section class="section">
         <div class="section-head">
-          <h2>USDC 市場</h2>
-          <p>快速了解目前有代表性的 USDC 收益市場</p>
+          <h2>你的 USDC</h2>
+          <p>我的目前部位跟市場差多少？</p>
+        </div>
+
+        <div class="current-position">
+          <p class="current-label">目前部位（示意 fixture，非錢包讀取）</p>
+          <p class="current-value">
+            {{ displayPosition.amount.toLocaleString('en-US') }} {{ displayPosition.asset }}
+            · {{ displayPosition.protocol }}
+            · {{ displayPosition.product }}
+            <template v-if="currentPositionRate">
+              · {{ formatMarketRate(currentPositionRate.rate, currentPositionRate.rateType) }}
+            </template>
+            <template v-else>
+              · 利率待對應
+            </template>
+          </p>
+        </div>
+
+        <p
+          v-if="decisionPending"
+          class="market-status"
+        >
+          正在取得個人比較資料…
+        </p>
+
+        <p
+          v-else-if="decisionError"
+          class="market-status market-status-error"
+        >
+          目前無法取得個人 USDC 比較資料。
+        </p>
+
+        <p
+          v-else-if="!currentPositionRate"
+          class="market-status"
+        >
+          已取得候選資料，但目前部位缺少市場觀察利率，暫不顯示差距列表。
+        </p>
+
+        <p
+          v-else-if="personalComparisonRows.length === 0"
+          class="market-status"
+        >
+          目前沒有同單位下高於你目前部位的候選機會。
+        </p>
+
+        <template v-else>
+          <ul class="opportunities">
+            <OpportunityRow
+              v-for="row in personalComparisonRows"
+              :key="row.key"
+              :protocol="row.protocol"
+              :product="row.product"
+              :apr-label="row.aprLabel"
+              :tvl-label="row.tvlLabel"
+              :meta-label="row.metaLabel"
+              :is-current="row.isCurrent"
+              :apr-diff-label="row.aprDiffLabel"
+              :annual-diff-label="row.annualDiffLabel"
+            />
+          </ul>
+
+          <p
+            v-if="higherYieldCandidates.length > PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT"
+            class="market-notice"
+          >
+            列表僅顯示同單位下較高收益候選前 {{ PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT }} 筆。
+          </p>
+          <p class="market-notice">
+            年化差額依示意部位估算，不是保證收益。
+          </p>
+        </template>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>DeFi 市場</h2>
+          <p>目前先看 USDC</p>
         </div>
 
         <p
@@ -569,88 +569,6 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           >
             資料更新時間 {{ marketFetchedAtLabel }}
           </p>
-        </template>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <h2>你的 USDC</h2>
-          <p>以示意目前部位，對照真實 Decision Candidate 資料</p>
-        </div>
-
-        <div class="current-position">
-          <p class="current-label">目前部位（示意 fixture，非錢包讀取）</p>
-          <p class="current-value">
-            {{ displayPosition.amount.toLocaleString('en-US') }} {{ displayPosition.asset }}
-            · {{ displayPosition.protocol }}
-            · {{ displayPosition.product }}
-            <template v-if="currentPositionRate">
-              · {{ formatMarketRate(currentPositionRate.rate, currentPositionRate.rateType) }}
-            </template>
-            <template v-else>
-              · 利率待對應
-            </template>
-          </p>
-        </div>
-
-        <p
-          v-if="decisionPending"
-          class="market-status"
-        >
-          正在取得 Decision Candidate 資料…
-        </p>
-
-        <p
-          v-else-if="decisionError"
-          class="market-status market-status-error"
-        >
-          目前無法取得個人 USDC 比較資料。
-        </p>
-
-        <p
-          v-else-if="!currentPositionRate"
-          class="market-status"
-        >
-          已取得候選資料，但目前部位缺少市場觀察利率，暫不顯示差距列表。
-        </p>
-
-        <p
-          v-else-if="personalComparisonRows.length === 0"
-          class="market-status"
-        >
-          目前沒有同單位下高於你目前部位的候選機會。
-        </p>
-
-        <template v-else>
-          <ul class="opportunities">
-            <OpportunityRow
-              v-for="row in personalComparisonRows"
-              :key="row.key"
-              :protocol="row.protocol"
-              :product="row.product"
-              :apr-label="row.aprLabel"
-              :tvl-label="row.tvlLabel"
-              :meta-label="row.metaLabel"
-              :is-current="row.isCurrent"
-              :apr-diff-label="row.aprDiffLabel"
-              :annual-diff-label="row.annualDiffLabel"
-            />
-          </ul>
-
-          <div class="move-decision">
-            <p class="move-question">{{ observationSummary.question }}</p>
-            <p class="move-answer">{{ observationSummary.answer }}</p>
-            <ul class="move-reasons">
-              <li
-                v-for="reason in observationSummary.reasons"
-                :key="reason"
-              >
-                {{ reason }}
-              </li>
-            </ul>
-            <p class="move-note">{{ observationSummary.estimateNote }}</p>
-            <p class="move-disclaimer">{{ observationSummary.disclaimer }}</p>
-          </div>
         </template>
       </section>
 
@@ -914,61 +832,6 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   background: var(--color-surface);
   list-style: none;
   overflow: hidden;
-}
-
-.move-decision {
-  margin-top: 16px;
-  padding: 24px 22px;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
-}
-
-.move-question {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
-.move-answer {
-  margin: 10px 0 0;
-  font-size: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
-}
-
-.move-reasons {
-  margin: 18px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.move-reasons li {
-  position: relative;
-  padding-left: 16px;
-  font-size: 0.9375rem;
-  line-height: 1.8;
-  color: var(--color-text-body);
-}
-
-.move-reasons li::before {
-  position: absolute;
-  left: 0;
-  color: var(--color-bullet);
-  content: '·';
-}
-
-.move-note,
-.move-disclaimer {
-  margin: 14px 0 0;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: var(--color-text-muted);
-}
-
-.move-disclaimer {
-  margin-top: 8px;
 }
 
 .events {
