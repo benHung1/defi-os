@@ -58,6 +58,8 @@ export interface YieldOpportunity {
   rateType: RateType
   tvlUsd: number | null
   source: string
+  /** User-facing official product page. Kept separate from provider provenance. */
+  productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
   /**

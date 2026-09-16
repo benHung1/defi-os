@@ -7,6 +7,10 @@ const SOURCE_URL = 'https://api.morpho.org/graphql'
 const ASSET = 'USDC'
 const ETHEREUM_CHAIN = 'Ethereum'
 
+function morphoVaultUrl (address: string): string {
+  return `https://app.morpho.org/ethereum/vault/${address}`
+}
+
 function isEthereumUsdcUnderlying (assetAddress: string): boolean {
   return assetAddress.toLowerCase() === ETHEREUM_USDC_ADDRESS.toLowerCase()
 }
@@ -79,6 +83,7 @@ export function selectMorphoUsdcOpportunities (
       rateType: 'APY',
       tvlUsd: vault.totalAssetsUsd,
       source: SOURCE_NAME,
+      productUrl: morphoVaultUrl(vault.address),
       sourceUrl: SOURCE_URL,
       sourcePoolId: vault.address,
       dataQuality: 'VERIFIED',

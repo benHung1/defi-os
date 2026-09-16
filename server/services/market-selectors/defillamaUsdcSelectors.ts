@@ -159,6 +159,7 @@ function toMarketOpportunity (
   protocol: string,
   product: string,
   opportunityType: OpportunityType,
+  productUrl: string,
   fetchedAt: string
 ): YieldOpportunity | null {
   const quality = evaluateObservationDataQuality(pool.apy, pool.apyMean30d)
@@ -186,6 +187,7 @@ function toMarketOpportunity (
     rateType: 'APY',
     tvlUsd: pool.tvlUsd,
     source: SOURCE_NAME,
+    productUrl,
     sourceUrl: SOURCE_URL,
     sourcePoolId: pool.pool,
     dataQuality: quality.dataQuality,
@@ -199,6 +201,7 @@ function pushIfVerified (
   protocol: string,
   product: string,
   opportunityType: OpportunityType,
+  productUrl: string,
   fetchedAt: string
 ): void {
   if (!pool) {
@@ -210,6 +213,7 @@ function pushIfVerified (
     protocol,
     product,
     opportunityType,
+    productUrl,
     fetchedAt
   )
 
@@ -233,6 +237,7 @@ export function selectDefiLlamaUsdcOpportunities (
     'Aave',
     'Aave V3 Ethereum USDC',
     'LENDING_SUPPLY',
+    'https://app.aave.com/',
     fetchedAt
   )
 
@@ -242,6 +247,7 @@ export function selectDefiLlamaUsdcOpportunities (
     'Spark',
     'Spark Savings USDC',
     'SAVINGS',
+    'https://app.spark.finance/savings/',
     fetchedAt
   )
 
@@ -251,6 +257,7 @@ export function selectDefiLlamaUsdcOpportunities (
     'Fluid',
     'Fluid Lending USDC',
     'LENDING_SUPPLY',
+    'https://fluid.instadapp.io/lending/1',
     fetchedAt
   )
 
@@ -260,6 +267,7 @@ export function selectDefiLlamaUsdcOpportunities (
     'Compound',
     'Compound V3 Ethereum USDC',
     'LENDING_SUPPLY',
+    'https://app.compound.finance/?market=usdc-mainnet',
     fetchedAt
   )
 

@@ -1,22 +1,36 @@
 <script setup lang="ts">
 defineProps<{
-  protocol: string
   product: string
   typeLabel: string
   chain: string
   rateLabel: string
   tvlLabel: string
+  productUrl?: string
+  sourceUrl?: string
 }>()
 </script>
 
 <template>
   <li class="row">
     <div class="main">
-      <p class="protocol">{{ protocol }}</p>
       <p class="product">{{ product }}</p>
       <p class="meta">
         <span>{{ typeLabel }}</span>
         <span>{{ chain }}</span>
+      </p>
+      <p class="links">
+        <a
+          v-if="productUrl"
+          :href="productUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >查看產品 ↗</a>
+        <a
+          v-if="sourceUrl"
+          :href="sourceUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >資料來源 ↗</a>
       </p>
     </div>
 
@@ -45,19 +59,31 @@ defineProps<{
   min-width: 0;
 }
 
-.protocol {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
-
 .product {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+}
+
+.links a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.links a:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
 }
 
 .meta {

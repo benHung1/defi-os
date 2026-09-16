@@ -44,6 +44,7 @@ interface YieldOpportunity {
   rateType: RateType
   tvlUsd: number | null
   source: string
+  productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
   dataQuality: string
@@ -204,21 +205,45 @@ const {
   error: decisionError
 } = await useFetch<UsdcDecisionCandidateResponse>('/api/decision/usdc')
 
-const marketRows = computed(() => {
+const marketGroups = computed(() => {
   const payload = marketDashboard.value
   if (!payload) {
     return []
   }
 
-  return payload.data.map(opportunity => ({
-    key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
-    protocol: opportunity.protocol,
-    product: opportunity.product,
-    typeLabel: opportunityTypeLabel(opportunity.opportunityType),
-    chain: opportunity.chain,
-    rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
-    tvlLabel: formatCompactUsd(opportunity.tvlUsd)
-  }))
+  const groups = new Map<string, {
+    protocol: string
+    rows: Array<{
+      key: string
+      product: string
+      typeLabel: string
+      chain: string
+      rateLabel: string
+      tvlLabel: string
+      productUrl?: string
+      sourceUrl?: string
+    }>
+  }>()
+
+  for (const opportunity of payload.data) {
+    const group = groups.get(opportunity.protocol) ?? {
+      protocol: opportunity.protocol,
+      rows: []
+    }
+    group.rows.push({
+      key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
+      product: opportunity.product,
+      typeLabel: opportunityTypeLabel(opportunity.opportunityType),
+      chain: opportunity.chain,
+      rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
+      tvlLabel: formatCompactUsd(opportunity.tvlUsd),
+      productUrl: opportunity.productUrl,
+      sourceUrl: opportunity.sourceUrl
+    })
+    groups.set(opportunity.protocol, group)
+  }
+
+  return Array.from(groups.values())
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -550,18 +575,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             部分市場資料來源暫時無法更新。
           </p>
 
-          <ul class="market-list">
-            <MarketOpportunityRow
-              v-for="row in marketRows"
-              :key="row.key"
-              :protocol="row.protocol"
-              :product="row.product"
-              :type-label="row.typeLabel"
-              :chain="row.chain"
-              :rate-label="row.rateLabel"
-              :tvl-label="row.tvlLabel"
+          <div class="market-list">
+            <MarketProtocolGroup
+              v-for="group in marketGroups"
+              :key="group.protocol"
+              :protocol="group.protocol"
+              :rows="group.rows"
             />
-          </ul>
+          </div>
 
           <p
             v-if="marketFetchedAtLabel"
