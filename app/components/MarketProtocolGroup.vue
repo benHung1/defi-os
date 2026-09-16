@@ -7,7 +7,6 @@ interface MarketRow {
   rateLabel: string
   tvlLabel: string
   productUrl?: string
-  sourceUrl?: string
 }
 
 defineProps<{
@@ -21,7 +20,7 @@ defineProps<{
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
       <span class="count">{{ rows.length }} 個產品</span>
-      <span class="chevron" aria-hidden="true">⌄</span>
+      <span class="chevron" aria-hidden="true" />
     </summary>
 
     <ul class="products">
@@ -34,7 +33,6 @@ defineProps<{
         :rate-label="row.rateLabel"
         :tvl-label="row.tvlLabel"
         :product-url="row.productUrl"
-        :source-url="row.sourceUrl"
       />
     </ul>
   </details>
@@ -79,12 +77,25 @@ defineProps<{
 }
 
 .chevron {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
   color: var(--color-text-muted);
+}
+
+.chevron::before {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: '';
+  transform: translateY(-2px) rotate(45deg);
   transition: transform 160ms ease;
 }
 
-.group[open] .chevron {
-  transform: rotate(180deg);
+.group[open] .chevron::before {
+  transform: translateY(2px) rotate(225deg);
 }
 
 .products {

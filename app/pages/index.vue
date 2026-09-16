@@ -221,7 +221,6 @@ const marketGroups = computed(() => {
       rateLabel: string
       tvlLabel: string
       productUrl?: string
-      sourceUrl?: string
     }>
   }>()
 
@@ -237,8 +236,7 @@ const marketGroups = computed(() => {
       chain: opportunity.chain,
       rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
       tvlLabel: formatCompactUsd(opportunity.tvlUsd),
-      productUrl: opportunity.productUrl,
-      sourceUrl: opportunity.sourceUrl
+      productUrl: opportunity.productUrl
     })
     groups.set(opportunity.protocol, group)
   }

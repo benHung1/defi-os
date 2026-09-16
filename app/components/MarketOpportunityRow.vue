@@ -6,7 +6,6 @@ defineProps<{
   rateLabel: string
   tvlLabel: string
   productUrl?: string
-  sourceUrl?: string
 }>()
 </script>
 
@@ -25,12 +24,6 @@ defineProps<{
           target="_blank"
           rel="noopener noreferrer"
         >查看產品 ↗</a>
-        <a
-          v-if="sourceUrl"
-          :href="sourceUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-        >資料來源 ↗</a>
       </p>
     </div>
 
