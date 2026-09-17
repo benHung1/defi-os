@@ -1,8 +1,9 @@
 import type { SupportedMarketAsset } from '../../providers/aave/scopedMarkets'
-import { getMultiScopedMarketDashboard, type SupportedMarketChain } from '../../services/scopedMarketDashboardService'
+import { isSupportedMarketChain, MARKET_ASSETS, MARKET_CHAINS, type SupportedMarketChain } from '../../marketRegistry'
+import { getMultiScopedMarketDashboard } from '../../services/scopedMarketDashboardService'
 
-const CHAINS = ['ethereum', 'base', 'arbitrum'] as const
-const ASSETS = ['USDC', 'USDT', 'ETH', 'BTC'] as const
+const CHAINS = MARKET_CHAINS.map(chain => chain.key)
+const ASSETS = MARKET_ASSETS
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -12,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const assets = assetQuery === 'ALL' ? [...ASSETS] : assetQuery.split(',').filter(Boolean)
   const limit = query.limit === undefined ? 5 : Number(query.limit)
 
-  if (chains.length === 0 || assets.length === 0 || chains.some(chain => !CHAINS.includes(chain as SupportedMarketChain)) || assets.some(asset => !ASSETS.includes(asset as SupportedMarketAsset))) {
+  if (chains.length === 0 || assets.length === 0 || chains.some(chain => !isSupportedMarketChain(chain)) || assets.some(asset => !ASSETS.includes(asset as SupportedMarketAsset))) {
     throw createError({ statusCode: 400, message: 'Unsupported chain or asset.' })
   }
   if (!Number.isInteger(limit) || limit < 1 || limit > 20) {

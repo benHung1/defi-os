@@ -1,24 +1,11 @@
 import { fetchAaveScopedMarket, type SupportedMarketAsset } from '../providers/aave/scopedMarkets'
+import { getMarketChain, type SupportedMarketChain } from '../marketRegistry'
 import type { UsdcMarketDashboardResponse, YieldOpportunity } from '../types/yield'
 import { resolveFreshnessStatus } from '../types/yield'
 import { getUsdcMarketDashboard } from './usdcMarketDashboardService'
 
-export type SupportedMarketChain = 'ethereum' | 'base' | 'arbitrum'
-
-const CHAINS: Record<SupportedMarketChain, { id: number, label: string, market: string }> = {
-  ethereum: { id: 1, label: 'Ethereum', market: 'AaveV3Ethereum' },
-  base: { id: 8453, label: 'Base', market: 'AaveV3Base' },
-  arbitrum: { id: 42161, label: 'Arbitrum', market: 'AaveV3Arbitrum' }
-}
-
-const SUPPORTED_COMBINATIONS: Record<SupportedMarketChain, SupportedMarketAsset[]> = {
-  ethereum: ['USDC', 'USDT', 'ETH', 'BTC'],
-  base: ['USDC', 'ETH', 'BTC'],
-  arbitrum: ['USDC', 'USDT', 'ETH', 'BTC']
-}
-
 export function isSupportedCombination (chain: SupportedMarketChain, asset: SupportedMarketAsset): boolean {
-  return SUPPORTED_COMBINATIONS[chain].includes(asset)
+  return getMarketChain(chain).assets.includes(asset)
 }
 
 export async function getMultiScopedMarketDashboard (
@@ -82,8 +69,8 @@ export async function getScopedMarketDashboard (
 ): Promise<UsdcMarketDashboardResponse> {
   if (chain === 'ethereum' && asset === 'USDC') return getUsdcMarketDashboard(options)
 
-  const chainConfig = CHAINS[chain]
-  const { market, fetchedAt } = await fetchAaveScopedMarket(chainConfig.id, chainConfig.market, asset)
+  const chainConfig = getMarketChain(chain)
+  const { market, fetchedAt } = await fetchAaveScopedMarket(chainConfig.chainId, chainConfig.aaveMarket, asset, options.forceRefresh)
   const opportunity: YieldOpportunity = {
     protocol: 'Aave',
     product: `Aave V3 ${chainConfig.label} ${market.reserveSymbol}`,

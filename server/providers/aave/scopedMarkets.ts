@@ -2,14 +2,16 @@ import { ProviderError } from '../errors'
 
 const AAVE_GRAPHQL_URL = 'https://api.v3.aave.com/graphql'
 const PROVIDER_NAME = 'Aave'
+const MARKET_CACHE_MS = 30_000
+const marketPayloadCache = new Map<string, { createdAt: number, expiresAt: number, promise: Promise<unknown> }>()
 
 export type SupportedMarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
 
 const SYMBOL_ALIASES: Record<SupportedMarketAsset, string[]> = {
-  USDC: ['USDC'],
-  USDT: ['USDT', 'USD₮0'],
-  ETH: ['WETH'],
-  BTC: ['WBTC', 'cbBTC', 'tBTC', 'LBTC']
+  USDC: ['USDC', 'USDC.e'],
+  USDT: ['USDT', 'USD₮0', 'USDT0', 'USDt'],
+  ETH: ['WETH', 'WETH.e', 'ETH'],
+  BTC: ['WBTC', 'WBTC.e', 'cbBTC', 'tBTC', 'LBTC', 'BTC.b', 'BTCB']
 }
 
 export interface AaveScopedMarketRecord {
@@ -72,23 +74,35 @@ function parseMarket (payload: unknown, chainId: number, marketName: string, ass
   }
 }
 
-export async function fetchAaveScopedMarket (chainId: number, marketName: string, asset: SupportedMarketAsset): Promise<{
+export async function fetchAaveScopedMarket (chainId: number, marketName: string, asset: SupportedMarketAsset, forceRefresh = false): Promise<{
   market: AaveScopedMarketRecord
   fetchedAt: string
 }> {
-  const query = `query ScopedMarket { markets(request: { chainIds: [${chainId}] }) { name address chain { chainId } reserves { underlyingToken { address symbol } supplyInfo { apy { formatted } } size { usd } } } }`
-  let response: Response
-  try {
-    response = await fetch(AAVE_GRAPHQL_URL, {
-      method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-      signal: AbortSignal.timeout(12_000)
-    })
-  } catch (error) {
-    throw new ProviderError(PROVIDER_NAME, 'Failed to reach Aave GraphQL API', { cause: error })
+  const cacheKey = `${chainId}:${marketName}`
+  const cached = marketPayloadCache.get(cacheKey)
+  const now = Date.now()
+  const reusableRefreshRequest = cached && now - cached.createdAt < 250
+  let payloadPromise = cached && cached.expiresAt > now && (!forceRefresh || reusableRefreshRequest) ? cached.promise : undefined
+  if (!payloadPromise) {
+    const query = `query ScopedMarket { markets(request: { chainIds: [${chainId}] }) { name address chain { chainId } reserves { underlyingToken { address symbol } supplyInfo { apy { formatted } } size { usd } } } }`
+    payloadPromise = (async (): Promise<unknown> => {
+      let response: Response
+      try {
+        response = await fetch(AAVE_GRAPHQL_URL, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: AbortSignal.timeout(12_000)
+        })
+      } catch (error) {
+        throw new ProviderError(PROVIDER_NAME, 'Failed to reach Aave GraphQL API', { cause: error })
+      }
+      if (!response.ok) throw new ProviderError(PROVIDER_NAME, `Aave GraphQL API returned HTTP ${response.status}`)
+      return response.json() as Promise<unknown>
+    })()
+    marketPayloadCache.set(cacheKey, { createdAt: now, expiresAt: now + MARKET_CACHE_MS, promise: payloadPromise })
+    payloadPromise.catch(() => marketPayloadCache.delete(cacheKey))
   }
-  if (!response.ok) throw new ProviderError(PROVIDER_NAME, `Aave GraphQL API returned HTTP ${response.status}`)
-  const payload = await response.json() as unknown
+  const payload = await payloadPromise
   return { market: parseMarket(payload, chainId, marketName, asset), fetchedAt: new Date().toISOString() }
 }

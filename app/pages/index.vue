@@ -27,8 +27,10 @@ type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
 type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
 type MarketSort = 'tvl' | 'rate'
-type MarketChain = 'ethereum' | 'base' | 'arbitrum'
+type MarketChain = string
 type MarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
+interface MarketChainOption { key: MarketChain, label: string, symbol: string, group: 'L1' | 'L2' | 'OTHER', assets: MarketAsset[] }
+interface MarketOptionsResponse { chains: MarketChainOption[], assets: MarketAsset[] }
 type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 type ProviderFetchStatus = 'ok' | 'error'
 
@@ -259,22 +261,24 @@ const { toggleLabel, toggleTheme } = useTheme()
 const route = useRoute()
 const router = useRouter()
 
-const validChains: MarketChain[] = ['ethereum', 'base', 'arbitrum']
-const validAssets: MarketAsset[] = ['USDC', 'USDT', 'ETH', 'BTC']
+const { data: marketOptions } = await useFetch<MarketOptionsResponse>('/api/market/options')
+const chainOptions = computed(() => marketOptions.value?.chains ?? [])
+const validChains = computed(() => chainOptions.value.map(chain => chain.key))
+const validAssets = computed(() => marketOptions.value?.assets ?? ['USDC', 'USDT', 'ETH', 'BTC'])
 const queryValues = (value: unknown): string[] => String(value ?? '').split(',').filter(Boolean)
 const chainQuery = String(route.query.chains ?? route.query.chain ?? 'ethereum')
 const assetQuery = String(route.query.assets ?? route.query.asset ?? 'usdc')
-const initialChains = queryValues(chainQuery).filter(value => validChains.includes(value as MarketChain)) as MarketChain[]
-const initialAssets = queryValues(assetQuery).map(value => value.toUpperCase()).filter(value => validAssets.includes(value as MarketAsset)) as MarketAsset[]
+const initialChains = queryValues(chainQuery).filter(value => validChains.value.includes(value))
+const initialAssets = queryValues(assetQuery).map(value => value.toUpperCase()).filter(value => validAssets.value.includes(value as MarketAsset)) as MarketAsset[]
 const marketChains = ref<MarketChain[]>(chainQuery === 'all' ? [] : [...new Set(initialChains)])
 const marketAssets = ref<MarketAsset[]>(assetQuery.toLowerCase() === 'all' ? [] : [...new Set(initialAssets)])
-const chainLabels: Record<MarketChain, string> = { ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum' }
+const chainLabel = (key: MarketChain): string => chainOptions.value.find(chain => chain.key === key)?.label ?? key
 const marketScopeLabel = computed(() => {
   if (marketChains.value.length === 0 && marketAssets.value.length === 0) return '全部鏈 · 全部資產'
   if (marketChains.value.length === 0) return `全部鏈 · ${marketAssets.value.length === 1 ? marketAssets.value[0] : `${marketAssets.value.length} 種資產`}`
-  if (marketAssets.value.length === 0) return `${marketChains.value.length === 1 ? chainLabels[marketChains.value[0]!] : `${marketChains.value.length} 條鏈`} · 全部資產`
+  if (marketAssets.value.length === 0) return `${marketChains.value.length === 1 ? chainLabel(marketChains.value[0]!) : `${marketChains.value.length} 條鏈`} · 全部資產`
   if (marketChains.value.length === 1 && marketAssets.value.length === 1) {
-    return `${chainLabels[marketChains.value[0]!]} · ${marketAssets.value[0]}`
+    return `${chainLabel(marketChains.value[0]!)} · ${marketAssets.value[0]}`
   }
   return `${marketChains.value.length} 條鏈 · ${marketAssets.value.length} 種資產`
 })
@@ -772,6 +776,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         <MarketFilterPanel
           :chains="marketChains"
           :assets="marketAssets"
+          :options="chainOptions"
           @change="applyMarketScope"
         />
 
