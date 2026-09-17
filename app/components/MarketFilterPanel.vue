@@ -55,6 +55,9 @@ const availableAssets: Record<MarketChain, MarketAsset[]> = {
 }
 
 const scopeLabel = computed(() => {
+  if (props.chains.length === 0 && props.assets.length === 0) return '全部鏈 · 全部資產'
+  if (props.chains.length === 0) return `全部鏈 · ${props.assets.length === 1 ? props.assets[0] : `${props.assets.length} 種資產`}`
+  if (props.assets.length === 0) return `${props.chains.length === 1 ? chainOptions.find(item => item.value === props.chains[0])?.label : `${props.chains.length} 條鏈`} · 全部資產`
   if (props.chains.length === 1 && props.assets.length === 1) {
     const chain = chainOptions.find(item => item.value === props.chains[0])?.label ?? props.chains[0]
     return `${chain} · ${props.assets[0]}`
@@ -62,21 +65,21 @@ const scopeLabel = computed(() => {
   return `${props.chains.length} 條鏈 · ${props.assets.length} 種資產`
 })
 
-const selectableAssets = computed(() => new Set(props.chains.flatMap(chain => availableAssets[chain])))
+const effectiveChains = computed(() => props.chains.length > 0 ? props.chains : chainOptions.map(item => item.value))
+const selectableAssets = computed(() => new Set(effectiveChains.value.flatMap(chain => availableAssets[chain])))
 
 function toggleChain (chain: MarketChain): void {
   const selected = props.chains.includes(chain)
-  if (selected && props.chains.length === 1) return
   const chains = selected ? props.chains.filter(item => item !== chain) : [...props.chains, chain]
-  const supportedAssets = new Set(chains.flatMap(item => availableAssets[item]))
+  const effective = chains.length > 0 ? chains : chainOptions.map(item => item.value)
+  const supportedAssets = new Set(effective.flatMap(item => availableAssets[item]))
   const assets = props.assets.filter(asset => supportedAssets.has(asset))
-  emit('change', { chains, assets: assets.length > 0 ? assets : ['USDC'] })
+  emit('change', { chains, assets })
 }
 
 function toggleAsset (asset: MarketAsset): void {
   if (!selectableAssets.value.has(asset)) return
   const selected = props.assets.includes(asset)
-  if (selected && props.assets.length === 1) return
   emit('change', {
     chains: props.chains,
     assets: selected ? props.assets.filter(item => item !== asset) : [...props.assets, asset]

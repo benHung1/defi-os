@@ -262,12 +262,17 @@ const router = useRouter()
 const validChains: MarketChain[] = ['ethereum', 'base', 'arbitrum']
 const validAssets: MarketAsset[] = ['USDC', 'USDT', 'ETH', 'BTC']
 const queryValues = (value: unknown): string[] => String(value ?? '').split(',').filter(Boolean)
-const initialChains = queryValues(route.query.chains ?? route.query.chain).filter(value => validChains.includes(value as MarketChain)) as MarketChain[]
-const initialAssets = queryValues(route.query.assets ?? route.query.asset).map(value => value.toUpperCase()).filter(value => validAssets.includes(value as MarketAsset)) as MarketAsset[]
-const marketChains = ref<MarketChain[]>(initialChains.length > 0 ? [...new Set(initialChains)] : ['ethereum'])
-const marketAssets = ref<MarketAsset[]>(initialAssets.length > 0 ? [...new Set(initialAssets)] : ['USDC'])
+const chainQuery = String(route.query.chains ?? route.query.chain ?? 'ethereum')
+const assetQuery = String(route.query.assets ?? route.query.asset ?? 'usdc')
+const initialChains = queryValues(chainQuery).filter(value => validChains.includes(value as MarketChain)) as MarketChain[]
+const initialAssets = queryValues(assetQuery).map(value => value.toUpperCase()).filter(value => validAssets.includes(value as MarketAsset)) as MarketAsset[]
+const marketChains = ref<MarketChain[]>(chainQuery === 'all' ? [] : [...new Set(initialChains)])
+const marketAssets = ref<MarketAsset[]>(assetQuery.toLowerCase() === 'all' ? [] : [...new Set(initialAssets)])
 const chainLabels: Record<MarketChain, string> = { ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum' }
 const marketScopeLabel = computed(() => {
+  if (marketChains.value.length === 0 && marketAssets.value.length === 0) return '全部鏈 · 全部資產'
+  if (marketChains.value.length === 0) return `全部鏈 · ${marketAssets.value.length === 1 ? marketAssets.value[0] : `${marketAssets.value.length} 種資產`}`
+  if (marketAssets.value.length === 0) return `${marketChains.value.length === 1 ? chainLabels[marketChains.value[0]!] : `${marketChains.value.length} 條鏈`} · 全部資產`
   if (marketChains.value.length === 1 && marketAssets.value.length === 1) {
     return `${chainLabels[marketChains.value[0]!]} · ${marketAssets.value[0]}`
   }
@@ -278,8 +283,8 @@ function marketDashboardUrl (limit: number, refresh = false): string {
   const params = new URLSearchParams({
     limit: String(limit),
     sort: 'tvl',
-    chains: marketChains.value.join(','),
-    assets: marketAssets.value.map(asset => asset.toLowerCase()).join(',')
+    chains: marketChains.value.length > 0 ? marketChains.value.join(',') : 'all',
+    assets: marketAssets.value.length > 0 ? marketAssets.value.map(asset => asset.toLowerCase()).join(',') : 'all'
   })
   if (refresh) params.set('refresh', '1')
   return `/api/market/dashboard?${params.toString()}`
@@ -295,8 +300,8 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
   const { chain: _chain, asset: _asset, ...query } = route.query
   await router.replace({ query: {
     ...query,
-    chains: scope.chains.join(','),
-    assets: scope.assets.map(asset => asset.toLowerCase()).join(',')
+    chains: scope.chains.length > 0 ? scope.chains.join(',') : 'all',
+    assets: scope.assets.length > 0 ? scope.assets.map(asset => asset.toLowerCase()).join(',') : 'all'
   } })
   const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
   if (requestId === marketScopeRequestId) marketDashboard.value = response

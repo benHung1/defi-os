@@ -6,8 +6,10 @@ const ASSETS = ['USDC', 'USDT', 'ETH', 'BTC'] as const
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const chains = String(query.chains ?? query.chain ?? 'ethereum').toLowerCase().split(',').filter(Boolean)
-  const assets = String(query.assets ?? query.asset ?? 'usdc').toUpperCase().split(',').filter(Boolean)
+  const chainQuery = String(query.chains ?? query.chain ?? 'ethereum').toLowerCase()
+  const assetQuery = String(query.assets ?? query.asset ?? 'usdc').toUpperCase()
+  const chains = chainQuery === 'all' ? [...CHAINS] : chainQuery.split(',').filter(Boolean)
+  const assets = assetQuery === 'ALL' ? [...ASSETS] : assetQuery.split(',').filter(Boolean)
   const limit = query.limit === undefined ? 5 : Number(query.limit)
 
   if (chains.length === 0 || assets.length === 0 || chains.some(chain => !CHAINS.includes(chain as SupportedMarketChain)) || assets.some(asset => !ASSETS.includes(asset as SupportedMarketAsset))) {
