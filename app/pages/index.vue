@@ -234,6 +234,12 @@ function formatFetchedAt (fetchedAt: string): string {
   return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}`
 }
 
+function eventTone (type: string): string {
+  if (type.includes('治理')) return 'governance'
+  if (type.includes('市場')) return 'market'
+  return 'protocol'
+}
+
 function opportunitySourceLabel (opportunity: YieldOpportunity): string {
   if (opportunity.sourceKind === 'ONCHAIN') return `${opportunity.protocol} 主網合約`
   if (opportunity.sourceKind === 'THIRD_PARTY_AGGREGATOR') return 'DefiLlama 第三方備援'
@@ -1052,13 +1058,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             :key="event.title"
             class="event"
           >
+            <span class="event-marker" :class="`event-marker-${eventTone(event.type)}`" aria-hidden="true" />
             <div class="event-main">
               <p class="event-meta">
-                <span class="event-type">{{ event.type }}</span>
-                <span>{{ event.protocol }}</span>
-                <span>{{ event.time }}</span>
+                <span class="event-type" :class="`event-type-${eventTone(event.type)}`">{{ event.type }}</span>
+                <time>{{ event.time }}</time>
               </p>
               <p class="event-title">{{ event.title }}</p>
+              <p class="event-protocol">{{ event.protocol }}</p>
             </div>
             <span class="event-attention">{{ event.attention }}</span>
           </li>
@@ -1531,51 +1538,92 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .events {
   margin: 20px 0 0;
   padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
   list-style: none;
 }
 
 .event {
+  position: relative;
   display: flex;
-  gap: 16px;
-  align-items: center;
+  gap: 18px;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 18px 22px;
-  border-top: 1px solid var(--color-border-subtle);
+  margin-left: 7px;
+  padding: 0 0 28px 28px;
 }
 
-.event:first-child {
-  border-top: none;
+.event:not(:last-child)::before {
+  position: absolute;
+  top: 11px;
+  bottom: -2px;
+  left: 0;
+  width: 1px;
+  background: var(--color-border);
+  content: '';
+}
+
+.event-marker {
+  position: absolute;
+  z-index: 1;
+  top: 5px;
+  left: -5px;
+  width: 11px;
+  height: 11px;
+  border: 3px solid var(--color-background);
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.event-marker-protocol { background: #168f87; }
+.event-marker-governance { background: #7167d9; }
+.event-marker-market { background: #b7791f; }
+
+.event-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .event-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 9px;
+  align-items: center;
   margin: 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
 }
 
 .event-type {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
   color: var(--color-text-body);
+  font-size: 0.75rem;
 }
 
+.event-type-protocol { color: #168f87; }
+.event-type-governance { color: #7167d9; }
+.event-type-market { color: #a56813; }
+
 .event-title {
-  margin: 8px 0 0;
-  font-size: 0.9375rem;
+  margin: 9px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
   color: var(--color-text-primary);
+}
+
+.event-protocol {
+  margin: 5px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
 }
 
 .event-attention {
   flex-shrink: 0;
-  padding: 5px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .footer {
