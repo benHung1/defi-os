@@ -1,4 +1,8 @@
 import type {
+  DataSourceKind,
+  MarketDashboardSort,
+  OpportunityType,
+  RateType,
   UsdcMarketDashboardResponse,
   YieldOpportunity
 } from '../types/yield'
@@ -52,12 +56,18 @@ function compareByTvlThenIdentity (
   return (left.sourcePoolId ?? '').localeCompare(right.sourcePoolId ?? '')
 }
 
+function compareByRateThenIdentity (left: YieldOpportunity, right: YieldOpportunity): number {
+  const rateDiff = right.rate - left.rate
+  return rateDiff !== 0 ? rateDiff : compareByTvlThenIdentity(left, right)
+}
+
 /**
  * Select up to MORPHO_DASHBOARD_LIMIT Morpho vaults:
  * TVL-desc first, then exact-name family dedupe (keep highest-TVL per family).
  */
 export function selectMorphoDashboardOpportunities (
-  opportunities: YieldOpportunity[]
+  opportunities: YieldOpportunity[],
+  sort: MarketDashboardSort = 'tvl'
 ): YieldOpportunity[] {
   const morpho = opportunities
     .filter(opportunity =>
@@ -65,7 +75,7 @@ export function selectMorphoDashboardOpportunities (
       && opportunity.dataQuality === 'VERIFIED'
       && opportunity.opportunityType === 'CURATED_VAULT'
     )
-    .sort(compareByTvlThenIdentity)
+    .sort(sort === 'rate' ? compareByRateThenIdentity : compareByTvlThenIdentity)
 
   const selected: YieldOpportunity[] = []
   const seenFamilies = new Set<string>()
@@ -99,12 +109,14 @@ function selectNonMorphoDashboardOpportunities (
  * Exported for deterministic verification of Morpho family selection.
  */
 export function selectUsdcMarketDashboardOpportunities (
-  opportunities: YieldOpportunity[]
+  opportunities: YieldOpportunity[],
+  sort: MarketDashboardSort = 'tvl'
 ): YieldOpportunity[] {
   const nonMorpho = selectNonMorphoDashboardOpportunities(opportunities)
-  const morpho = selectMorphoDashboardOpportunities(opportunities)
+  const morpho = selectMorphoDashboardOpportunities(opportunities, sort)
 
-  const combined = [...nonMorpho, ...morpho].sort(compareByTvlThenIdentity)
+  const combined = [...nonMorpho, ...morpho]
+    .sort(sort === 'rate' ? compareByRateThenIdentity : compareByTvlThenIdentity)
 
   // Presentation ceiling only — do not fill unused slots with extra Morpho vaults.
   if (combined.length > DASHBOARD_MAX_ITEMS) {
@@ -120,23 +132,43 @@ export function selectUsdcMarketDashboardOpportunities (
  * Does not fetch providers, alter DataQuality, or produce recommendations.
  */
 export async function getUsdcMarketDashboard (
-  options: { forceRefresh?: boolean, limit?: number } = {}
+  options: {
+    forceRefresh?: boolean
+    limit?: number
+    sort?: MarketDashboardSort
+    opportunityType?: OpportunityType
+    sourceKind?: DataSourceKind
+    rateType?: RateType
+  } = {}
 ): Promise<UsdcMarketDashboardResponse> {
   const market = await getUsdcMarketOpportunities(options)
-  const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(market.data)
+  const sort = options.sort ?? 'tvl'
+  const filtered = market.data.filter(opportunity =>
+    (options.opportunityType === undefined || opportunity.opportunityType === options.opportunityType)
+    && (options.sourceKind === undefined || opportunity.sourceKind === options.sourceKind)
+    && (options.rateType === undefined || opportunity.rateType === options.rateType)
+  )
+  const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(filtered, sort)
   const protocolTvls = new Map<string, number>()
+  const protocolRates = new Map<string, number>()
 
   for (const opportunity of dashboardOpportunities) {
     protocolTvls.set(
       opportunity.protocol,
       (protocolTvls.get(opportunity.protocol) ?? 0) + (opportunity.tvlUsd ?? 0)
     )
+    protocolRates.set(
+      opportunity.protocol,
+      Math.max(protocolRates.get(opportunity.protocol) ?? Number.NEGATIVE_INFINITY, opportunity.rate)
+    )
   }
 
   const rankedProtocols = Array.from(protocolTvls.entries())
     .sort((left, right) => {
-      const tvlDiff = right[1] - left[1]
-      return tvlDiff !== 0 ? tvlDiff : left[0].localeCompare(right[0])
+      const metricDiff = sort === 'rate'
+        ? (protocolRates.get(right[0]) ?? 0) - (protocolRates.get(left[0]) ?? 0)
+        : right[1] - left[1]
+      return metricDiff !== 0 ? metricDiff : left[0].localeCompare(right[0])
     })
   const limit = options.limit ?? 5
   const visibleProtocols = new Set(
@@ -150,7 +182,7 @@ export async function getUsdcMarketDashboard (
       ...market.meta,
       ranking: {
         scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS',
-        sort: 'tvl',
+        sort,
         limit,
         protocolCount: visibleProtocols.size,
         totalEligibleProtocols: rankedProtocols.length

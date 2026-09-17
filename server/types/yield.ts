@@ -1,5 +1,6 @@
 export type RateType = 'APR' | 'APY'
 export type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
+export type MarketDashboardSort = 'tvl' | 'rate'
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 
@@ -146,7 +147,7 @@ export interface UsdcMarketDashboardResponse {
   meta: YieldResponseMeta & {
     ranking: {
       scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
-      sort: 'tvl'
+      sort: MarketDashboardSort
       limit: number
       protocolCount: number
       totalEligibleProtocols: number
