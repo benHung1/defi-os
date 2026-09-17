@@ -26,9 +26,6 @@ interface Dashboard {
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
 type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
-type MarketTypeFilter = 'all' | 'lending' | 'savings' | 'vault'
-type MarketSourceFilter = 'all' | 'official' | 'onchain' | 'third_party'
-type MarketRateTypeFilter = 'all' | 'apr' | 'apy'
 type MarketSort = 'tvl' | 'rate'
 type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 type ProviderFetchStatus = 'ok' | 'error'
@@ -257,29 +254,13 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
-const route = useRoute()
-const router = useRouter()
-
-function allowedQueryValue<T extends string> (value: unknown, allowed: readonly T[], fallback: T): T {
-  const normalized = typeof value === 'string' ? value.toLowerCase() : ''
-  return allowed.includes(normalized as T) ? normalized as T : fallback
-}
-
-const marketType = ref(allowedQueryValue(route.query.type, ['all', 'lending', 'savings', 'vault'] as const, 'all'))
-const marketSource = ref(allowedQueryValue(route.query.source, ['all', 'official', 'onchain', 'third_party'] as const, 'all'))
-const marketRateType = ref(allowedQueryValue(route.query.rateType, ['all', 'apr', 'apy'] as const, 'all'))
-const initialSort = allowedQueryValue(route.query.sort, ['tvl', 'rate'] as const, 'tvl')
-const marketSort = ref<MarketSort>(initialSort === 'rate' && marketRateType.value === 'all' ? 'tvl' : initialSort)
 
 function marketDashboardUrl (limit: number, refresh = false): string {
   const params = new URLSearchParams({
     limit: String(limit),
-    sort: marketSort.value,
+    sort: 'tvl',
     chain: 'ethereum',
-    asset: 'usdc',
-    type: marketType.value,
-    source: marketSource.value,
-    rateType: marketRateType.value
+    asset: 'usdc'
   })
   if (refresh) params.set('refresh', '1')
   return `/api/market/usdc/dashboard?${params.toString()}`
@@ -322,33 +303,6 @@ async function refreshMarket (): Promise<void> {
   }
 }
 
-async function applyMarketFilters (filters: {
-  type: MarketTypeFilter
-  source: MarketSourceFilter
-  rateType: MarketRateTypeFilter
-  sort: MarketSort
-}): Promise<void> {
-  marketType.value = filters.type
-  marketSource.value = filters.source
-  marketRateType.value = filters.rateType
-  marketSort.value = filters.sort
-  showAllMarketProtocols.value = false
-  marketRefreshMessage.value = null
-
-  await router.replace({
-    query: {
-      ...route.query,
-      type: marketType.value === 'all' ? undefined : marketType.value,
-      source: marketSource.value === 'all' ? undefined : marketSource.value,
-      rateType: marketRateType.value === 'all' ? undefined : marketRateType.value,
-      sort: marketSort.value === 'tvl' ? undefined : marketSort.value
-    }
-  })
-  marketDashboard.value = await $fetch<UsdcMarketDashboardResponse>(
-    marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT)
-  )
-}
-
 async function toggleMarketProtocols (): Promise<void> {
   if (showAllMarketProtocols.value) {
     showAllMarketProtocols.value = false
@@ -381,7 +335,6 @@ const marketGroups = computed(() => {
   const groups = new Map<string, {
     protocol: string
     totalTvlUsd: number
-    maxRate: number
     sourceKinds: Set<DataSourceKind>
     rows: Array<{
       key: string
@@ -401,12 +354,10 @@ const marketGroups = computed(() => {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
       totalTvlUsd: 0,
-      maxRate: Number.NEGATIVE_INFINITY,
       sourceKinds: new Set<DataSourceKind>(),
       rows: []
     }
     group.totalTvlUsd += opportunity.tvlUsd ?? 0
-    group.maxRate = Math.max(group.maxRate, opportunity.rate)
     group.sourceKinds.add(opportunity.sourceKind)
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
@@ -424,9 +375,7 @@ const marketGroups = computed(() => {
   }
 
   return Array.from(groups.values())
-    .sort((left, right) => marketSort.value === 'rate'
-      ? right.maxRate - left.maxRate
-      : right.totalTvlUsd - left.totalTvlUsd)
+    .sort((left, right) => right.totalTvlUsd - left.totalTvlUsd)
     .map(group => ({
       ...group,
       tvlLabel: formatCompactUsd(group.totalTvlUsd),
@@ -459,8 +408,7 @@ const marketRankingLabel = computed(() => {
     return 'DeFi OS 已支援的 Ethereum USDC 協議，依 TVL 合計排序'
   }
 
-  const metric = ranking.sort === 'rate' ? marketRateType.value.toUpperCase() : 'TVL'
-  return `DeFi OS 已支援的 Ethereum USDC 協議 · ${metric} 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
+  return `DeFi OS 已支援的 Ethereum USDC 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -780,13 +728,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </button>
         </div>
 
-        <MarketFilterPanel
-          :type="marketType"
-          :source="marketSource"
-          :rate-type="marketRateType"
-          :sort="marketSort"
-          @change="applyMarketFilters"
-        />
+        <MarketFilterPanel />
 
         <p class="market-scope">
           {{ marketRankingLabel }}

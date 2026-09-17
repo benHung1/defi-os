@@ -1,179 +1,99 @@
 <script setup lang="ts">
-type MarketTypeFilter = 'all' | 'lending' | 'savings' | 'vault'
-type MarketSourceFilter = 'all' | 'official' | 'onchain' | 'third_party'
-type MarketRateTypeFilter = 'all' | 'apr' | 'apy'
-type MarketSort = 'tvl' | 'rate'
+const root = ref<HTMLElement | null>(null)
+const open = ref(false)
 
-interface FilterOption<T extends string> {
-  value: T
-  label: string
-  hint?: string
-  tone: string
+function close (): void { open.value = false }
+function onDocumentPointerDown (event: PointerEvent): void {
+  if (open.value && root.value && !root.value.contains(event.target as Node)) close()
+}
+function onDocumentKeyDown (event: KeyboardEvent): void {
+  if (event.key === 'Escape') close()
 }
 
-const props = defineProps<{
-  type: MarketTypeFilter
-  source: MarketSourceFilter
-  rateType: MarketRateTypeFilter
-  sort: MarketSort
-}>()
-
-const emit = defineEmits<{
-  change: [filters: {
-    type: MarketTypeFilter
-    source: MarketSourceFilter
-    rateType: MarketRateTypeFilter
-    sort: MarketSort
-  }]
-}>()
-
-const search = ref('')
-
-const groups: Array<{
-  label: string
-  key: 'type' | 'source' | 'rateType' | 'sort'
-  options: FilterOption<string>[]
-}> = [
-  {
-    label: '產品類型',
-    key: 'type' as const,
-    options: [
-      { value: 'all', label: '全部產品', tone: 'blue' },
-      { value: 'lending', label: 'Lending', hint: '借貸供應', tone: 'cyan' },
-      { value: 'savings', label: 'Savings', hint: '儲蓄產品', tone: 'green' },
-      { value: 'vault', label: 'Curated Vault', hint: '策展金庫', tone: 'purple' }
-    ] satisfies FilterOption<MarketTypeFilter>[]
-  },
-  {
-    label: '資料來源',
-    key: 'source' as const,
-    options: [
-      { value: 'all', label: '全部來源', tone: 'blue' },
-      { value: 'official', label: '官方 API', tone: 'green' },
-      { value: 'onchain', label: '鏈上合約', tone: 'purple' },
-      { value: 'third_party', label: '第三方備援', tone: 'orange' }
-    ] satisfies FilterOption<MarketSourceFilter>[]
-  },
-  {
-    label: '利率口徑',
-    key: 'rateType' as const,
-    options: [
-      { value: 'all', label: '全部口徑', tone: 'blue' },
-      { value: 'apr', label: 'APR', hint: '未計複利', tone: 'cyan' },
-      { value: 'apy', label: 'APY', hint: '已計複利', tone: 'green' }
-    ] satisfies FilterOption<MarketRateTypeFilter>[]
-  },
-  {
-    label: '排序方式',
-    key: 'sort' as const,
-    options: [
-      { value: 'tvl', label: 'TVL', hint: '資金規模', tone: 'blue' },
-      { value: 'rate', label: '利率', hint: '需先選 APR 或 APY', tone: 'orange' }
-    ] satisfies FilterOption<MarketSort>[]
-  }
-]
-
-const filteredGroups = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  if (!term) return groups
-  return groups
-    .map(group => ({
-      ...group,
-      options: group.options.filter(option =>
-        `${option.label} ${option.hint ?? ''}`.toLowerCase().includes(term)
-      )
-    }))
-    .filter(group => group.options.length > 0)
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onDocumentKeyDown)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onDocumentKeyDown)
 })
 
-function isSelected (key: 'type' | 'source' | 'rateType' | 'sort', value: string): boolean {
-  return props[key] === value
-}
-
-function select (key: 'type' | 'source' | 'rateType' | 'sort', value: string): void {
-  const next = { type: props.type, source: props.source, rateType: props.rateType, sort: props.sort }
-  if (key === 'type') next.type = value as MarketTypeFilter
-  if (key === 'source') next.source = value as MarketSourceFilter
-  if (key === 'rateType') {
-    next.rateType = value as MarketRateTypeFilter
-    if (next.rateType === 'all' && next.sort === 'rate') next.sort = 'tvl'
-  }
-  if (key === 'sort') {
-    if (value === 'rate' && next.rateType === 'all') return
-    next.sort = value as MarketSort
-  }
-  emit('change', next)
-}
+const chains = [
+  { label: 'Ethereum', symbol: 'Ξ', selected: true, available: true, tone: 'ethereum' },
+  { label: 'Arbitrum', symbol: 'A', selected: false, available: false, tone: 'arbitrum' },
+  { label: 'Base', symbol: 'B', selected: false, available: false, tone: 'base' }
+]
+const assets = [
+  { label: 'USDC', symbol: '$', selected: true, available: true, tone: 'usdc' },
+  { label: 'USDT', symbol: '₮', selected: false, available: false, tone: 'usdt' },
+  { label: 'DAI', symbol: 'D', selected: false, available: false, tone: 'dai' },
+  { label: 'USDS', symbol: 'S', selected: false, available: false, tone: 'usds' }
+]
 </script>
 
 <template>
-  <details class="filter-picker">
-    <summary>
+  <div ref="root" class="filter-picker">
+    <button type="button" class="trigger" :aria-expanded="open" aria-haspopup="dialog" @click="open = !open">
       <span class="scope-icon">Ξ</span>
-      <span><strong>Ethereum · USDC</strong><small>篩選市場</small></span>
-      <span class="summary-chevron" aria-hidden="true" />
-    </summary>
+      <span><strong>Ethereum · USDC</strong><small>選擇鏈與穩定幣</small></span>
+      <span class="summary-chevron" :class="{ open }" aria-hidden="true" />
+    </button>
 
-    <div class="panel">
-      <label class="search">
-        <span aria-hidden="true">⌕</span>
-        <input v-model="search" type="search" placeholder="搜尋篩選項目…">
-      </label>
+    <div v-if="open" class="panel" role="dialog" aria-label="選擇市場範圍">
+      <div class="panel-head">
+        <div><strong>市場範圍</strong><small>目前只顯示已接通的真實資料</small></div>
+        <button type="button" class="close" aria-label="關閉市場篩選" @click="close">×</button>
+      </div>
 
-      <section class="fixed-scope">
-        <p>目前資料範圍</p>
+      <section>
+        <p>選擇鏈</p>
         <div class="option-grid">
-          <div class="option selected"><i class="blue" />Ethereum</div>
-          <div class="option selected"><i class="cyan" />USDC</div>
-        </div>
-      </section>
-
-      <section v-for="group in filteredGroups" :key="group.key" class="filter-group">
-        <p>{{ group.label }}</p>
-        <div class="option-grid">
-          <button
-            v-for="option in group.options"
-            :key="option.value"
-            type="button"
-            class="option"
-            :class="{ selected: isSelected(group.key, option.value), disabled: group.key === 'sort' && option.value === 'rate' && rateType === 'all' }"
-            :disabled="group.key === 'sort' && option.value === 'rate' && rateType === 'all'"
-            @click="select(group.key, option.value)"
-          >
-            <i :class="option.tone" />
-            <span>{{ option.label }}<small v-if="option.hint">{{ option.hint }}</small></span>
+          <button v-for="item in chains" :key="item.label" type="button" class="option" :class="{ selected: item.selected }" :disabled="!item.available">
+            <i :class="item.tone">{{ item.symbol }}</i>
+            <span><strong>{{ item.label }}</strong><small v-if="!item.available">即將支援</small></span>
+            <b v-if="item.selected" aria-label="已選擇">✓</b>
           </button>
         </div>
       </section>
 
-      <p v-if="filteredGroups.length === 0" class="empty">找不到符合的篩選項目。</p>
+      <section>
+        <p>選擇穩定幣</p>
+        <div class="option-grid">
+          <button v-for="item in assets" :key="item.label" type="button" class="option" :class="{ selected: item.selected }" :disabled="!item.available">
+            <i :class="item.tone">{{ item.symbol }}</i>
+            <span><strong>{{ item.label }}</strong><small v-if="!item.available">即將支援</small></span>
+            <b v-if="item.selected" aria-label="已選擇">✓</b>
+          </button>
+        </div>
+      </section>
     </div>
-  </details>
+  </div>
 </template>
 
 <style scoped>
 .filter-picker { position: relative; margin-top: 16px; }
-.filter-picker > summary { display: inline-flex; gap: 10px; align-items: center; min-width: 250px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); cursor: pointer; list-style: none; }
-.filter-picker > summary::-webkit-details-marker { display: none; }
-.filter-picker > summary > span:nth-child(2) { display: grid; flex: 1; }
-.filter-picker strong { font-size: .875rem; color: var(--color-text-primary); }
-.filter-picker small { margin-top: 2px; font-size: .72rem; font-weight: 400; color: var(--color-text-muted); }
+.trigger { display: inline-flex; gap: 10px; align-items: center; min-width: 270px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text-body); cursor: pointer; text-align: left; }
+.trigger > span:nth-child(2) { display: grid; flex: 1; }
+.trigger strong, .panel strong { color: var(--color-text-primary); }
+.trigger small, .panel small { display: block; margin-top: 2px; font-size: .72rem; font-weight: 400; color: var(--color-text-muted); }
 .scope-icon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #627eea; color: white; }
-.summary-chevron { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
-.filter-picker[open] .summary-chevron { transform: rotate(225deg); }
-.panel { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; width: min(680px, calc(100vw - 48px)); max-height: 70vh; overflow: auto; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); box-shadow: 0 20px 50px rgb(0 0 0 / 20%); }
-.search { display: flex; gap: 10px; align-items: center; margin: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-text-muted); }
-.search input { width: 100%; border: 0; outline: 0; background: transparent; font: inherit; color: var(--color-text-primary); }
-.filter-group, .fixed-scope { padding: 11px 20px 15px; border-top: 1px solid var(--color-border-subtle); }
-.filter-group p, .fixed-scope p { margin: 0 0 8px; font-size: .75rem; color: var(--color-text-muted); }
-.option-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.option { display: flex; gap: 9px; align-items: center; min-width: 0; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: .84rem; font-weight: 600; text-align: left; color: var(--color-text-body); }
-button.option { cursor: pointer; }
-.option:hover, .option.selected { background: var(--color-surface-soft); color: var(--color-text-primary); }
-.option.disabled { cursor: not-allowed; opacity: .45; }
-.option span { display: grid; min-width: 0; }
-.option i { width: 13px; height: 13px; flex: 0 0 13px; border-radius: 50%; background: var(--dot); }
-.option i.blue { --dot: #627eea; } .option i.cyan { --dot: #3bc4d4; } .option i.green { --dot: #46b981; } .option i.purple { --dot: #8067e8; } .option i.orange { --dot: #f59e42; }
-.empty { padding: 24px; text-align: center; color: var(--color-text-muted); }
+.summary-chevron { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 160ms ease; }
+.summary-chevron.open { transform: rotate(225deg); }
+.panel { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; width: min(620px, calc(100vw - 48px)); border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); box-shadow: 0 20px 50px rgb(0 0 0 / 20%); overflow: hidden; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; }
+.panel-head > div { display: grid; }
+.close { width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--color-text-muted); cursor: pointer; font-size: 1.25rem; }
+.close:hover { background: var(--color-surface-soft); color: var(--color-text-primary); }
+section { padding: 13px 18px 17px; border-top: 1px solid var(--color-border-subtle); }
+section > p { margin: 0 0 9px; font-size: .75rem; color: var(--color-text-muted); }
+.option-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.option { display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: center; min-width: 0; padding: 11px; border: 1px solid transparent; border-radius: 10px; background: transparent; font: inherit; text-align: left; color: var(--color-text-body); }
+.option.selected { border-color: #627eea; background: color-mix(in srgb, #627eea 13%, transparent); }
+.option:disabled:not(.selected) { opacity: .48; }
+.option i { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: var(--coin); color: white; font-style: normal; font-size: .75rem; }
+.option span { min-width: 0; }
+.option b { color: #627eea; }
+.ethereum { --coin: #627eea; } .arbitrum { --coin: #2d8bd3; } .base { --coin: #1769ff; } .usdc { --coin: #2775ca; } .usdt { --coin: #26a17b; } .dai { --coin: #f5ac37; } .usds { --coin: #7764e4; }
 @media (max-width: 600px) { .panel { width: calc(100vw - 32px); } .option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
