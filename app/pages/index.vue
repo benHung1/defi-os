@@ -753,9 +753,12 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
       </section>
 
       <section class="section">
-        <div class="section-head">
-          <h2>投資組合</h2>
-          <p>我的資產現在在哪裡？</p>
+        <div class="section-head portfolio-section-head">
+          <div>
+            <h2>投資組合</h2>
+            <p>我的資產現在在哪裡？</p>
+          </div>
+          <WalletReadOnlyConnect />
         </div>
         <div class="grid grid-4">
           <SummaryCard
@@ -1269,6 +1272,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   justify-content: space-between;
 }
 
+.portfolio-section-head {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
 .market-filter-actions {
   display: flex;
   justify-content: flex-end;
@@ -1654,6 +1664,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .market-updating { color: var(--color-text-secondary); }
 
 @media (max-width: 760px) {
+  .portfolio-section-head { flex-direction: column; }
   .market-tools { align-items: stretch; flex-direction: column; }
   .market-search { min-width: 100%; }
   .market-sort-controls { flex-wrap: wrap; }
