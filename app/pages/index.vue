@@ -185,14 +185,19 @@ function formatFetchedAt (fetchedAt: string): string {
   if (Number.isNaN(ms)) {
     return fetchedAt
   }
-  return new Intl.DateTimeFormat('zh-TW', {
+
+  const parts = new Intl.DateTimeFormat('zh-TW', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
-  }).format(new Date(ms))
+    hour12: false,
+    timeZone: 'Asia/Taipei'
+  }).formatToParts(new Date(ms))
+
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}`
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
