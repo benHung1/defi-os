@@ -298,8 +298,10 @@ function marketDashboardUrl (limit: number, refresh = false): string {
 }
 
 let marketScopeRequestId = 0
+const marketUpdating = ref(false)
 async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketAsset[] }): Promise<void> {
   const requestId = ++marketScopeRequestId
+  marketUpdating.value = true
   marketChains.value = scope.chains
   marketAssets.value = scope.assets
   showAllMarketProtocols.value = false
@@ -311,12 +313,24 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
     assets: scope.assets.length > 0 ? scope.assets.map(asset => asset.toLowerCase()).join(',') : 'all',
     q: marketSearch.value || undefined
   } })
-  const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
-  if (requestId === marketScopeRequestId) marketDashboard.value = response
+  try {
+    const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
+    if (requestId === marketScopeRequestId) marketDashboard.value = response
+  } catch {
+    if (requestId === marketScopeRequestId) marketRefreshMessage.value = '篩選更新失敗，畫面保留上一份資料。'
+  } finally {
+    if (requestId === marketScopeRequestId) marketUpdating.value = false
+  }
 }
 
 async function applyMarketSearch (): Promise<void> {
   marketSearch.value = marketSearchDraft.value.trim().slice(0, 80)
+  await applyMarketScope({ chains: marketChains.value, assets: marketAssets.value })
+}
+
+async function clearMarketSearch (): Promise<void> {
+  marketSearchDraft.value = ''
+  marketSearch.value = ''
   await applyMarketScope({ chains: marketChains.value, assets: marketAssets.value })
 }
 
@@ -470,8 +484,15 @@ const marketRankingLabel = computed(() => {
     return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場，依 TVL 合計排序`
   }
 
-  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個協議（目前符合 ${ranking.totalEligibleProtocols} 個）`
+  if (ranking.totalEligibleProtocols <= ranking.limit) {
+    return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · 目前顯示 ${ranking.totalEligibleProtocols} 個協議`
+  }
+  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個協議（共 ${ranking.totalEligibleProtocols} 個）`
 })
+
+const marketSearchResultLabel = computed(() => marketSearch.value
+  ? `找到 ${marketDashboard.value?.data.length ?? 0} 個符合「${marketSearch.value}」的產品`
+  : null)
 
 const hasPartialProviderFailure = computed(() => {
   const providers = marketDashboard.value?.meta.providers
@@ -806,9 +827,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </div>
           <form class="market-search" role="search" @submit.prevent="applyMarketSearch">
             <input v-model="marketSearchDraft" type="search" maxlength="80" placeholder="搜尋協議、產品、鏈或資產…" aria-label="搜尋市場產品">
+            <button v-if="marketSearchDraft || marketSearch" type="button" class="search-clear" @click="clearMarketSearch">清除</button>
             <button type="submit">搜尋</button>
           </form>
         </div>
+
+        <p v-if="marketSearchResultLabel" class="market-result-count">{{ marketSearchResultLabel }}</p>
+        <p v-if="marketUpdating" class="market-updating" role="status">正在更新市場結果…</p>
 
         <p class="market-scope">
           {{ marketRankingLabel }}
@@ -1416,7 +1441,11 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .market-presets button.active { border-color: #627eea; background: color-mix(in srgb, #627eea 13%, transparent); color: var(--color-text-primary); }
 .market-search { display: flex; min-width: min(360px, 100%); }
 .market-search input { min-width: 0; flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-right: 0; border-radius: 10px 0 0 10px; background: var(--color-surface); color: var(--color-text-primary); font: inherit; }
-.market-search button { padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 0 10px 10px 0; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+.market-search button { padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 0; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+.market-search button:last-child { border-radius: 0 10px 10px 0; }
+.market-search .search-clear { border-right: 0; color: var(--color-text-muted); }
+.market-result-count, .market-updating { margin: 10px 0 0; font-size: .8125rem; color: var(--color-text-muted); }
+.market-updating { color: var(--color-text-secondary); }
 
 @media (max-width: 760px) {
   .market-tools { align-items: stretch; flex-direction: column; }
