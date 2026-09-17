@@ -259,33 +259,47 @@ const { toggleLabel, toggleTheme } = useTheme()
 const route = useRoute()
 const router = useRouter()
 
-const marketChain = ref<MarketChain>(['ethereum', 'base', 'arbitrum'].includes(String(route.query.chain))
-  ? String(route.query.chain) as MarketChain
-  : 'ethereum')
-const marketAsset = ref<MarketAsset>(['USDC', 'USDT', 'ETH', 'BTC'].includes(String(route.query.asset).toUpperCase())
-  ? String(route.query.asset).toUpperCase() as MarketAsset
-  : 'USDC')
-if (marketChain.value === 'base' && marketAsset.value === 'USDT') marketAsset.value = 'USDC'
-const marketChainLabel = computed(() => ({ ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum' })[marketChain.value])
+const validChains: MarketChain[] = ['ethereum', 'base', 'arbitrum']
+const validAssets: MarketAsset[] = ['USDC', 'USDT', 'ETH', 'BTC']
+const queryValues = (value: unknown): string[] => String(value ?? '').split(',').filter(Boolean)
+const initialChains = queryValues(route.query.chains ?? route.query.chain).filter(value => validChains.includes(value as MarketChain)) as MarketChain[]
+const initialAssets = queryValues(route.query.assets ?? route.query.asset).map(value => value.toUpperCase()).filter(value => validAssets.includes(value as MarketAsset)) as MarketAsset[]
+const marketChains = ref<MarketChain[]>(initialChains.length > 0 ? [...new Set(initialChains)] : ['ethereum'])
+const marketAssets = ref<MarketAsset[]>(initialAssets.length > 0 ? [...new Set(initialAssets)] : ['USDC'])
+const chainLabels: Record<MarketChain, string> = { ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum' }
+const marketScopeLabel = computed(() => {
+  if (marketChains.value.length === 1 && marketAssets.value.length === 1) {
+    return `${chainLabels[marketChains.value[0]!]} · ${marketAssets.value[0]}`
+  }
+  return `${marketChains.value.length} 條鏈 · ${marketAssets.value.length} 種資產`
+})
 
 function marketDashboardUrl (limit: number, refresh = false): string {
   const params = new URLSearchParams({
     limit: String(limit),
     sort: 'tvl',
-    chain: marketChain.value,
-    asset: marketAsset.value.toLowerCase()
+    chains: marketChains.value.join(','),
+    assets: marketAssets.value.map(asset => asset.toLowerCase()).join(',')
   })
   if (refresh) params.set('refresh', '1')
   return `/api/market/dashboard?${params.toString()}`
 }
 
-async function applyMarketScope (scope: { chain: MarketChain, asset: MarketAsset }): Promise<void> {
-  marketChain.value = scope.chain
-  marketAsset.value = scope.asset
+let marketScopeRequestId = 0
+async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketAsset[] }): Promise<void> {
+  const requestId = ++marketScopeRequestId
+  marketChains.value = scope.chains
+  marketAssets.value = scope.assets
   showAllMarketProtocols.value = false
   marketRefreshMessage.value = null
-  await router.replace({ query: { ...route.query, chain: scope.chain, asset: scope.asset.toLowerCase() } })
-  marketDashboard.value = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
+  const { chain: _chain, asset: _asset, ...query } = route.query
+  await router.replace({ query: {
+    ...query,
+    chains: scope.chains.join(','),
+    assets: scope.assets.map(asset => asset.toLowerCase()).join(',')
+  } })
+  const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
+  if (requestId === marketScopeRequestId) marketDashboard.value = response
 }
 
 const {
@@ -427,10 +441,10 @@ const hasMoreMarketProtocols = computed(() => {
 const marketRankingLabel = computed(() => {
   const ranking = marketDashboard.value?.meta.ranking
   if (!ranking) {
-    return `DeFi OS 已支援的 ${marketChainLabel.value} ${marketAsset.value} 協議，依 TVL 合計排序`
+    return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場，依 TVL 合計排序`
   }
 
-  return `DeFi OS 已支援的 ${marketChainLabel.value} ${marketAsset.value} 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
+  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個協議（目前符合 ${ranking.totalEligibleProtocols} 個）`
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -738,7 +752,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         <div class="section-head market-section-head">
           <div>
             <h2>DeFi 市場</h2>
-            <p>{{ marketChainLabel }} · {{ marketAsset }}</p>
+            <p>{{ marketScopeLabel }}</p>
           </div>
           <button
             type="button"
@@ -751,8 +765,8 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </div>
 
         <MarketFilterPanel
-          :chain="marketChain"
-          :asset="marketAsset"
+          :chains="marketChains"
+          :assets="marketAssets"
           @change="applyMarketScope"
         />
 
