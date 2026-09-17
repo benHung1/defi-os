@@ -73,8 +73,9 @@ export function selectMorphoUsdcOpportunities (
     }
 
     opportunities.push({
-      protocol: 'Morpho',
-      product: `${vault.name} (${vault.version})`,
+      protocol: 'Morpho Blue',
+      product: vault.name,
+      productVersion: vault.version,
       opportunityType: 'CURATED_VAULT',
       asset: ASSET,
       chain: ETHEREUM_CHAIN,

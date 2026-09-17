@@ -37,6 +37,7 @@ interface ProviderFetchMeta {
 interface YieldOpportunity {
   protocol: string
   product: string
+  productVersion?: string
   opportunityType: OpportunityType
   asset: string
   chain: string
@@ -102,7 +103,7 @@ const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
 
 /** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
 const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
-const MARKET_INITIAL_DISPLAY_LIMIT = 5
+const MARKET_INITIAL_PROTOCOL_LIMIT = 5
 
 const dashboard: Dashboard = {
   greeting: '早安',
@@ -200,6 +201,11 @@ function formatFetchedAt (fetchedAt: string): string {
   return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}`
 }
 
+function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
+  const base = opportunityTypeLabel(opportunity.opportunityType)
+  return opportunity.productVersion ? `${base} ${opportunity.productVersion}` : base
+}
+
 const { toggleLabel, toggleTheme } = useTheme()
 
 const {
@@ -208,20 +214,9 @@ const {
   error: marketError
 } = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
 
-const showAllMarketItems = ref(false)
+const showAllMarketProtocols = ref(false)
 const marketRefreshing = ref(false)
 const marketRefreshMessage = ref<string | null>(null)
-
-const visibleMarketOpportunities = computed(() => {
-  const opportunities = marketDashboard.value?.data ?? []
-  return showAllMarketItems.value
-    ? opportunities
-    : opportunities.slice(0, MARKET_INITIAL_DISPLAY_LIMIT)
-})
-
-const hasMoreMarketItems = computed(() => {
-  return (marketDashboard.value?.data.length ?? 0) > MARKET_INITIAL_DISPLAY_LIMIT
-})
 
 async function refreshMarket (): Promise<void> {
   marketRefreshing.value = true
@@ -262,6 +257,7 @@ const marketGroups = computed(() => {
 
   const groups = new Map<string, {
     protocol: string
+    totalTvlUsd: number
     rows: Array<{
       key: string
       product: string
@@ -273,15 +269,17 @@ const marketGroups = computed(() => {
     }>
   }>()
 
-  for (const opportunity of visibleMarketOpportunities.value) {
+  for (const opportunity of payload.data) {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
+      totalTvlUsd: 0,
       rows: []
     }
+    group.totalTvlUsd += opportunity.tvlUsd ?? 0
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
       product: opportunity.product,
-      typeLabel: opportunityTypeLabel(opportunity.opportunityType),
+      typeLabel: opportunityDisplayTypeLabel(opportunity),
       chain: opportunity.chain,
       rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
       tvlLabel: formatCompactUsd(opportunity.tvlUsd),
@@ -291,6 +289,21 @@ const marketGroups = computed(() => {
   }
 
   return Array.from(groups.values())
+    .sort((left, right) => right.totalTvlUsd - left.totalTvlUsd)
+    .map(group => ({
+      ...group,
+      tvlLabel: formatCompactUsd(group.totalTvlUsd)
+    }))
+})
+
+const visibleMarketGroups = computed(() => {
+  return showAllMarketProtocols.value
+    ? marketGroups.value
+    : marketGroups.value.slice(0, MARKET_INITIAL_PROTOCOL_LIMIT)
+})
+
+const hasMoreMarketProtocols = computed(() => {
+  return marketGroups.value.length > MARKET_INITIAL_PROTOCOL_LIMIT
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -379,7 +392,7 @@ const personalComparisonRows = computed(() => {
         product: candidate.product,
         aprLabel: formatMarketRate(candidate.rate, candidate.rateType),
         tvlLabel: formatCompactUsd(candidate.tvlUsd),
-        metaLabel: `${opportunityTypeLabel(candidate.opportunityType)} · ${candidate.chain}`,
+        metaLabel: `${opportunityDisplayTypeLabel(candidate)} · ${candidate.chain}`,
         isCurrent: false,
         aprDiffLabel: `${formatSignedRateDiff(rateDiff)} vs 目前`,
         annualDiffLabel: formatAnnualDiff(position.amount, rateDiff)
@@ -611,7 +624,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </div>
 
         <p class="market-scope">
-          依產品 TVL 由高至低，預設顯示前 {{ MARKET_INITIAL_DISPLAY_LIMIT }} 名
+          依支援 USDC 產品 TVL 合計排序，顯示主要協議
         </p>
 
         <p
@@ -645,22 +658,23 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 
           <div class="market-list">
             <MarketProtocolGroup
-              v-for="group in marketGroups"
+              v-for="group in visibleMarketGroups"
               :key="group.protocol"
               :protocol="group.protocol"
               :rows="group.rows"
+              :tvl-label="group.tvlLabel"
             />
           </div>
 
           <button
-            v-if="hasMoreMarketItems"
+            v-if="hasMoreMarketProtocols"
             type="button"
             class="market-more"
-            @click="showAllMarketItems = !showAllMarketItems"
+            @click="showAllMarketProtocols = !showAllMarketProtocols"
           >
-            {{ showAllMarketItems
-              ? `收合至前 ${MARKET_INITIAL_DISPLAY_LIMIT} 名`
-              : `顯示全部 ${marketDashboard?.data.length ?? 0} 個支援產品` }}
+            {{ showAllMarketProtocols
+              ? `收合至前 ${MARKET_INITIAL_PROTOCOL_LIMIT} 個協議`
+              : `顯示全部 ${marketGroups.length} 個協議` }}
           </button>
 
           <p

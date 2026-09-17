@@ -51,6 +51,8 @@ export function evaluateObservationDataQuality (
 export interface YieldOpportunity {
   protocol: string
   product: string
+  /** Product implementation version, distinct from the protocol name/version. */
+  productVersion?: string
   opportunityType: OpportunityType
   asset: string
   chain: string

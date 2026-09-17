@@ -12,6 +12,7 @@ const DASHBOARD_MAX_ITEMS = 20
 
 /** Maximum Morpho curated vaults shown on the Dashboard. */
 const MORPHO_DASHBOARD_LIMIT = 6
+const MORPHO_PROTOCOL = 'Morpho Blue'
 
 /**
  * Exact upstream-name family key for Morpho presentation deduplication.
@@ -20,7 +21,7 @@ const MORPHO_DASHBOARD_LIMIT = 6
  */
 export function morphoProductFamilyKey (product: string): string {
   return product
-    .replace(/ \(V[12]\)$/, '')
+    .replace(/(?: \(V[12]\)| · Vault V[12])$/, '')
     .toLowerCase()
     .trim()
 }
@@ -60,7 +61,7 @@ export function selectMorphoDashboardOpportunities (
 ): YieldOpportunity[] {
   const morpho = opportunities
     .filter(opportunity =>
-      opportunity.protocol === 'Morpho'
+      opportunity.protocol === MORPHO_PROTOCOL
       && opportunity.dataQuality === 'VERIFIED'
       && opportunity.opportunityType === 'CURATED_VAULT'
     )
@@ -88,7 +89,7 @@ function selectNonMorphoDashboardOpportunities (
   opportunities: YieldOpportunity[]
 ): YieldOpportunity[] {
   return opportunities.filter(opportunity =>
-    opportunity.protocol !== 'Morpho'
+    opportunity.protocol !== MORPHO_PROTOCOL
     && opportunity.dataQuality === 'VERIFIED'
   )
 }

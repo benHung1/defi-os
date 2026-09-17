@@ -12,6 +12,7 @@ interface MarketRow {
 defineProps<{
   protocol: string
   rows: MarketRow[]
+  tvlLabel: string
 }>()
 </script>
 
@@ -19,7 +20,10 @@ defineProps<{
   <details class="group">
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
-      <span class="count">{{ rows.length }} 個產品</span>
+      <span class="summary-meta">
+        <span class="tvl">支援產品 TVL {{ tvlLabel }}</span>
+        <span class="count">{{ rows.length }} 個產品</span>
+      </span>
       <span class="chevron" aria-hidden="true" />
     </summary>
 
@@ -76,6 +80,17 @@ defineProps<{
   color: var(--color-text-muted);
 }
 
+.summary-meta {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.tvl {
+  font-size: 0.8125rem;
+  color: var(--color-text-body);
+}
+
 .chevron {
   display: grid;
   width: 20px;
@@ -109,6 +124,12 @@ defineProps<{
 @media (max-width: 480px) {
   .summary {
     padding: 16px 18px;
+  }
+
+  .summary-meta {
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
   }
 }
 </style>
