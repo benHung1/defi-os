@@ -149,34 +149,11 @@ export async function getUsdcMarketDashboard (
     && (options.rateType === undefined || opportunity.rateType === options.rateType)
   )
   const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(filtered, sort)
-  const protocolTvls = new Map<string, number>()
-  const protocolRates = new Map<string, number>()
-
-  for (const opportunity of dashboardOpportunities) {
-    protocolTvls.set(
-      opportunity.protocol,
-      (protocolTvls.get(opportunity.protocol) ?? 0) + (opportunity.tvlUsd ?? 0)
-    )
-    protocolRates.set(
-      opportunity.protocol,
-      Math.max(protocolRates.get(opportunity.protocol) ?? Number.NEGATIVE_INFINITY, opportunity.rate)
-    )
-  }
-
-  const rankedProtocols = Array.from(protocolTvls.entries())
-    .sort((left, right) => {
-      const metricDiff = sort === 'rate'
-        ? (protocolRates.get(right[0]) ?? 0) - (protocolRates.get(left[0]) ?? 0)
-        : right[1] - left[1]
-      return metricDiff !== 0 ? metricDiff : left[0].localeCompare(right[0])
-    })
   const limit = options.limit ?? 5
-  const visibleProtocols = new Set(
-    rankedProtocols.slice(0, limit).map(([protocol]) => protocol)
-  )
+  const visibleProducts = dashboardOpportunities.slice(0, limit)
 
   return {
-    data: dashboardOpportunities.filter(opportunity => visibleProtocols.has(opportunity.protocol)),
+    data: visibleProducts,
     excluded: market.excluded,
     meta: {
       ...market.meta,
@@ -184,8 +161,8 @@ export async function getUsdcMarketDashboard (
         scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS',
         sort,
         limit,
-        protocolCount: visibleProtocols.size,
-        totalEligibleProtocols: rankedProtocols.length
+        productCount: visibleProducts.length,
+        totalEligibleProducts: dashboardOpportunities.length
       }
     }
   }

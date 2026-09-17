@@ -149,8 +149,8 @@ export interface UsdcMarketDashboardResponse {
       scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS' | 'SUPPORTED_MARKET_PROTOCOLS'
       sort: MarketDashboardSort
       limit: number
-      protocolCount: number
-      totalEligibleProtocols: number
+      productCount: number
+      totalEligibleProducts: number
     }
   }
 }

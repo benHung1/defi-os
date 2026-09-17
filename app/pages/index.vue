@@ -92,8 +92,8 @@ interface UsdcMarketDashboardResponse {
       scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS' | 'SUPPORTED_MARKET_PROTOCOLS'
       sort: MarketSort
       limit: number
-      protocolCount: number
-      totalEligibleProtocols: number
+      productCount: number
+      totalEligibleProducts: number
     }
   }
 }
@@ -135,7 +135,8 @@ const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
 
 /** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
 const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
-const MARKET_INITIAL_PROTOCOL_LIMIT = 5
+const MARKET_INITIAL_PRODUCT_LIMIT = 10
+const MARKET_ALL_PRODUCT_LIMIT = 100
 
 const dashboard: Dashboard = {
   greeting: '早安',
@@ -304,7 +305,7 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
   marketUpdating.value = true
   marketChains.value = scope.chains
   marketAssets.value = scope.assets
-  showAllMarketProtocols.value = false
+  showAllMarketProducts.value = false
   marketRefreshMessage.value = null
   const { chain: _chain, asset: _asset, ...query } = route.query
   await router.replace({ query: {
@@ -314,7 +315,7 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
     q: marketSearch.value || undefined
   } })
   try {
-    const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
+    const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT))
     if (requestId === marketScopeRequestId) marketDashboard.value = response
   } catch {
     if (requestId === marketScopeRequestId) marketRefreshMessage.value = '篩選更新失敗，畫面保留上一份資料。'
@@ -347,10 +348,10 @@ const {
   pending: marketPending,
   error: marketError
 } = await useFetch<UsdcMarketDashboardResponse>(
-  marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT)
+  marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT)
 )
 
-const showAllMarketProtocols = ref(false)
+const showAllMarketProducts = ref(false)
 const marketRefreshing = ref(false)
 const marketRefreshMessage = ref<string | null>(null)
 
@@ -360,7 +361,7 @@ async function refreshMarket (): Promise<void> {
 
   try {
     const refreshed = await $fetch<UsdcMarketDashboardResponse>(
-      marketDashboardUrl(showAllMarketProtocols.value ? 20 : MARKET_INITIAL_PROTOCOL_LIMIT, true)
+      marketDashboardUrl(showAllMarketProducts.value ? MARKET_ALL_PRODUCT_LIMIT : MARKET_INITIAL_PRODUCT_LIMIT, true)
     )
     marketDashboard.value = refreshed
 
@@ -379,21 +380,21 @@ async function refreshMarket (): Promise<void> {
   }
 }
 
-async function toggleMarketProtocols (): Promise<void> {
-  if (showAllMarketProtocols.value) {
-    showAllMarketProtocols.value = false
+async function toggleMarketProducts (): Promise<void> {
+  if (showAllMarketProducts.value) {
+    showAllMarketProducts.value = false
     const ranked = await $fetch<UsdcMarketDashboardResponse>(
-      marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT)
+      marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT)
     )
     marketDashboard.value = ranked
     return
   }
 
   const ranked = await $fetch<UsdcMarketDashboardResponse>(
-    marketDashboardUrl(20)
+    marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT)
   )
   marketDashboard.value = ranked
-  showAllMarketProtocols.value = true
+  showAllMarketProducts.value = true
 }
 
 const {
@@ -414,6 +415,7 @@ const marketGroups = computed(() => {
     sourceKinds: Set<DataSourceKind>
     rows: Array<{
       key: string
+      rank: number
       product: string
       typeLabel: string
       chain: string
@@ -426,7 +428,7 @@ const marketGroups = computed(() => {
     }>
   }>()
 
-  for (const opportunity of payload.data) {
+  for (const [index, opportunity] of payload.data.entries()) {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
       totalTvlUsd: 0,
@@ -437,6 +439,7 @@ const marketGroups = computed(() => {
     group.sourceKinds.add(opportunity.sourceKind)
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
+      rank: index + 1,
       product: opportunity.product,
       typeLabel: opportunityDisplayTypeLabel(opportunity),
       chain: opportunity.chain,
@@ -451,7 +454,6 @@ const marketGroups = computed(() => {
   }
 
   return Array.from(groups.values())
-    .sort((left, right) => right.totalTvlUsd - left.totalTvlUsd)
     .map(group => ({
       ...group,
       tvlLabel: formatCompactUsd(group.totalTvlUsd),
@@ -472,10 +474,10 @@ const fallbackProtocolNames = computed(() => marketGroups.value
 
 const visibleMarketGroups = computed(() => marketGroups.value)
 
-const hasMoreMarketProtocols = computed(() => {
+const hasMoreMarketProducts = computed(() => {
   const ranking = marketDashboard.value?.meta.ranking
-  return showAllMarketProtocols.value
-    || Boolean(ranking && ranking.totalEligibleProtocols > ranking.protocolCount)
+  return showAllMarketProducts.value
+    || Boolean(ranking && ranking.totalEligibleProducts > ranking.productCount)
 })
 
 const marketRankingLabel = computed(() => {
@@ -484,14 +486,14 @@ const marketRankingLabel = computed(() => {
     return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場，依 TVL 合計排序`
   }
 
-  if (ranking.totalEligibleProtocols <= ranking.limit) {
-    return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · 目前顯示 ${ranking.totalEligibleProtocols} 個協議`
+  if (ranking.totalEligibleProducts <= ranking.limit) {
+    return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · 目前顯示 ${ranking.totalEligibleProducts} 個收益產品`
   }
-  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個協議（共 ${ranking.totalEligibleProtocols} 個）`
+  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個收益產品（共 ${ranking.totalEligibleProducts} 個）`
 })
 
 const marketSearchResultLabel = computed(() => marketSearch.value
-  ? `找到 ${marketDashboard.value?.data.length ?? 0} 個符合「${marketSearch.value}」的產品`
+  ? `找到 ${marketDashboard.value?.meta.ranking.totalEligibleProducts ?? 0} 個符合「${marketSearch.value}」的產品`
   : null)
 
 const hasPartialProviderFailure = computed(() => {
@@ -891,14 +893,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </div>
 
           <button
-            v-if="hasMoreMarketProtocols"
+            v-if="hasMoreMarketProducts"
             type="button"
             class="market-more"
-            @click="toggleMarketProtocols"
+            @click="toggleMarketProducts"
           >
-            {{ showAllMarketProtocols
-              ? `收合至前 ${MARKET_INITIAL_PROTOCOL_LIMIT} 個協議`
-              : `顯示全部 ${marketGroups.length} 個協議` }}
+            {{ showAllMarketProducts
+              ? `收合至 TVL 前 ${MARKET_INITIAL_PRODUCT_LIMIT} 個產品`
+              : `顯示全部 ${marketDashboard?.meta.ranking.totalEligibleProducts ?? 0} 個產品` }}
           </button>
 
           <details

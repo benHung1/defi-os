@@ -17,8 +17,8 @@ export default defineEventHandler(async (event) => {
   if (chains.length === 0 || assets.length === 0 || chains.some(chain => !isSupportedMarketChain(chain)) || assets.some(asset => !ASSETS.includes(asset as SupportedMarketAsset))) {
     throw createError({ statusCode: 400, message: 'Unsupported chain or asset.' })
   }
-  if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
-    throw createError({ statusCode: 400, message: 'limit must be an integer from 1 to 20.' })
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw createError({ statusCode: 400, message: 'limit must be an integer from 1 to 100.' })
   }
   if (keyword.length > 80) {
     throw createError({ statusCode: 400, message: 'q must be at most 80 characters.' })

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{
+  rank: number
   product: string
   typeLabel: string
   chain: string
@@ -15,7 +16,7 @@ defineProps<{
 <template>
   <li class="row">
     <div class="main">
-      <p class="product">{{ product }}</p>
+      <p class="product"><span class="rank">#{{ rank }}</span>{{ product }}</p>
       <p class="meta">
         <span>{{ typeLabel }}</span>
         <span>{{ chain }}</span>
@@ -65,6 +66,8 @@ defineProps<{
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
+
+.rank { display: inline-block; min-width: 32px; margin-right: 8px; color: var(--color-text-muted); font-size: .8125rem; }
 
 .links {
   display: flex;

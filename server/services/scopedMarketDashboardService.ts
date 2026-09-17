@@ -31,11 +31,9 @@ export async function getMultiScopedMarketDashboard (
     item.source,
     item.sourcePoolId
   ].some(value => value?.toLocaleLowerCase().includes(query)))
-  const protocolTvls = new Map<string, number>()
-  for (const item of allData) protocolTvls.set(item.protocol, (protocolTvls.get(item.protocol) ?? 0) + (item.tvlUsd ?? 0))
   const limit = options.limit ?? 5
-  const rankedProtocols = [...protocolTvls.entries()].sort((left, right) => right[1] - left[1]).map(([protocol]) => protocol)
-  const visibleProtocols = new Set(rankedProtocols.slice(0, limit))
+  const rankedProducts = [...allData].sort((left, right) => (right.tvlUsd ?? 0) - (left.tvlUsd ?? 0))
+  const visibleProducts = rankedProducts.slice(0, limit)
   const fetchedAt = successful.map(result => result.meta.fetchedAt).sort().at(-1)!
   const providers = successful.flatMap(result => result.meta.providers)
   results.forEach((result, index) => {
@@ -46,7 +44,7 @@ export async function getMultiScopedMarketDashboard (
   })
 
   return {
-    data: allData.filter(item => visibleProtocols.has(item.protocol)),
+    data: visibleProducts,
     excluded: successful.flatMap(result => result.excluded),
     meta: {
       fetchedAt,
@@ -58,8 +56,8 @@ export async function getMultiScopedMarketDashboard (
         scope: 'SUPPORTED_MARKET_PROTOCOLS',
         sort: 'tvl',
         limit,
-        protocolCount: visibleProtocols.size,
-        totalEligibleProtocols: rankedProtocols.length
+        productCount: visibleProducts.length,
+        totalEligibleProducts: rankedProducts.length
       }
     }
   }
@@ -104,8 +102,8 @@ export async function getScopedMarketDashboard (
         scope: 'SUPPORTED_MARKET_PROTOCOLS',
         sort: 'tvl',
         limit: options.limit ?? 5,
-        protocolCount: 1,
-        totalEligibleProtocols: 1
+        productCount: 1,
+        totalEligibleProducts: 1
       }
     }
   }

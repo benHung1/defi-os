@@ -1,6 +1,7 @@
 <script setup lang="ts">
 interface MarketRow {
   key: string
+  rank: number
   product: string
   typeLabel: string
   chain: string
@@ -34,8 +35,8 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
         <span class="source" :title="sourceHelp">{{ sourceLabel }}</span>
-        <span class="tvl">TVL {{ tvlLabel }}</span>
-        <span class="count">{{ rows.length }} 個產品</span>
+        <span class="tvl">所列 TVL {{ tvlLabel }}</span>
+        <span class="count">入榜 {{ rows.length }} 個</span>
       </span>
       <span class="chevron" aria-hidden="true" />
     </summary>
@@ -44,6 +45,7 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
       <MarketOpportunityRow
         v-for="row in visibleRows"
         :key="row.key"
+        :rank="row.rank"
         :product="row.product"
         :type-label="row.typeLabel"
         :chain="row.chain"
