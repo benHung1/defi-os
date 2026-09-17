@@ -2,6 +2,7 @@ import { fetchDefiLlamaYieldPools } from '../providers/defillama/yields'
 import { fetchMorphoEthereumUsdcVaults } from '../providers/morpho/vaults'
 import { ProviderError } from '../providers/errors'
 import type {
+  ExcludedMarketObservation,
   ProviderFetchMeta,
   UsdcMarketResponse,
   YieldOpportunity
@@ -33,6 +34,7 @@ type ProviderOutcome =
     status: 'ok'
     fetchedAt: string
     opportunities: YieldOpportunity[]
+    excluded: ExcludedMarketObservation[]
   }
   | {
     name: string
@@ -67,11 +69,13 @@ function compareMarketOrder (left: YieldOpportunity, right: YieldOpportunity): n
 async function fetchDefiLlamaOutcome (): Promise<ProviderOutcome> {
   try {
     const { pools, fetchedAt } = await fetchDefiLlamaYieldPools()
+    const selection = selectDefiLlamaUsdcOpportunities(pools, fetchedAt)
     return {
       name: 'DefiLlama',
       status: 'ok',
       fetchedAt,
-      opportunities: selectDefiLlamaUsdcOpportunities(pools, fetchedAt)
+      opportunities: selection.opportunities,
+      excluded: selection.excluded
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown DefiLlama failure'
@@ -94,7 +98,8 @@ async function fetchMorphoOutcome (): Promise<ProviderOutcome> {
       name: 'Morpho',
       status: 'ok',
       fetchedAt,
-      opportunities: selectMorphoUsdcOpportunities(vaults, fetchedAt)
+      opportunities: selectMorphoUsdcOpportunities(vaults, fetchedAt),
+      excluded: []
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown Morpho failure'
@@ -156,6 +161,7 @@ async function fetchUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
 
   return {
     data,
+    excluded: successful.flatMap(outcome => outcome.excluded),
     meta: {
       fetchedAt: aggregate.fetchedAt,
       status: aggregate.status,
@@ -177,6 +183,7 @@ function presentMarket (
 ): UsdcMarketResponse {
   return {
     data: market.data,
+    excluded: market.excluded,
     meta: {
       ...market.meta,
       status: resolveFreshnessStatus(market.meta.fetchedAt),

@@ -145,6 +145,7 @@ export async function getUsdcMarketDashboard (
 
   return {
     data: dashboardOpportunities.filter(opportunity => visibleProtocols.has(opportunity.protocol)),
+    excluded: market.excluded,
     meta: {
       ...market.meta,
       ranking: {

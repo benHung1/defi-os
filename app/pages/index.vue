@@ -61,8 +61,24 @@ interface YieldResponseMeta {
   cacheFallback?: boolean
 }
 
+interface ExcludedMarketObservation {
+  protocol: string
+  product: string
+  chain: string
+  asset: string
+  reasonCode: 'APY_DEVIATES_FROM_30D_MEAN'
+  reason: string
+  currentRate: number
+  referenceRate: number
+  rateType: RateType
+  source: string
+  productUrl?: string
+  sourcePoolId?: string
+}
+
 interface UsdcMarketDashboardResponse {
   data: YieldOpportunity[]
+  excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta & {
     ranking: {
       scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
@@ -657,6 +673,12 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </button>
         </div>
 
+        <div class="market-filters" aria-label="目前市場資料範圍">
+          <span class="market-filter"><span>鏈</span>Ethereum</span>
+          <span class="market-filter"><span>資產</span>USDC</span>
+          <span class="market-filter"><span>排序</span>TVL</span>
+        </div>
+
         <p class="market-scope">
           {{ marketRankingLabel }}
         </p>
@@ -710,6 +732,44 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
               ? `收合至前 ${MARKET_INITIAL_PROTOCOL_LIMIT} 個協議`
               : `顯示全部 ${marketGroups.length} 個協議` }}
           </button>
+
+          <details
+            v-if="marketDashboard?.excluded.length"
+            class="market-excluded"
+          >
+            <summary>
+              {{ marketDashboard.excluded.length }} 個市場項目未納入排名
+            </summary>
+            <div class="market-excluded-list">
+              <article
+                v-for="item in marketDashboard.excluded"
+                :key="`${item.protocol}:${item.sourcePoolId ?? item.product}`"
+                class="market-excluded-item"
+              >
+                <div>
+                  <a
+                    v-if="item.productUrl"
+                    :href="item.productUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >{{ item.protocol }} · {{ item.product }}</a>
+                  <strong v-else>{{ item.protocol }} · {{ item.product }}</strong>
+                  <p>{{ item.reason }}</p>
+                  <p class="market-excluded-disclaimer">這是資料品質檢查，不代表協議安全性評價。</p>
+                </div>
+                <dl>
+                  <div>
+                    <dt>目前</dt>
+                    <dd>{{ item.currentRate.toFixed(2) }}% {{ item.rateType }}</dd>
+                  </div>
+                  <div>
+                    <dt>近 30 日平均</dt>
+                    <dd>{{ item.referenceRate.toFixed(2) }}% {{ item.rateType }}</dd>
+                  </div>
+                </dl>
+              </article>
+            </div>
+          </details>
 
           <p
             v-if="marketRefreshMessage"
@@ -981,6 +1041,29 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   color: var(--color-text-muted);
 }
 
+.market-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.market-filter {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.8125rem;
+  color: var(--color-text-body);
+}
+
+.market-filter span {
+  color: var(--color-text-muted);
+}
+
 .market-more {
   width: 100%;
   margin-top: 12px;
@@ -1009,6 +1092,78 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   margin: 12px 0 0;
   font-size: 0.8125rem;
   color: var(--color-text-muted);
+}
+
+.market-excluded {
+  margin-top: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-body);
+}
+
+.market-excluded summary {
+  padding: 13px 16px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.market-excluded-list {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.market-excluded-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  padding: 16px;
+}
+
+.market-excluded-item a,
+.market-excluded-item strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.market-excluded-item p {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.market-excluded-item .market-excluded-disclaimer {
+  font-size: 0.75rem;
+}
+
+.market-excluded-item dl {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+  text-align: right;
+}
+
+.market-excluded-item dt {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.market-excluded-item dd {
+  margin: 4px 0 0;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--color-text-body);
+}
+
+@media (max-width: 600px) {
+  .market-excluded-item {
+    grid-template-columns: 1fr;
+  }
+
+  .market-excluded-item dl {
+    text-align: left;
+  }
 }
 
 .current-position {

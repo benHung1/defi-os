@@ -112,8 +112,24 @@ export interface YieldResponseMeta {
   cacheFallback?: boolean
 }
 
+export interface ExcludedMarketObservation {
+  protocol: string
+  product: string
+  chain: string
+  asset: string
+  reasonCode: 'APY_DEVIATES_FROM_30D_MEAN'
+  reason: string
+  currentRate: number
+  referenceRate: number
+  rateType: RateType
+  source: string
+  productUrl?: string
+  sourcePoolId?: string
+}
+
 export interface UsdcMarketResponse {
   data: YieldOpportunity[]
+  excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta
 }
 
@@ -123,6 +139,7 @@ export interface UsdcMarketResponse {
  */
 export interface UsdcMarketDashboardResponse {
   data: YieldOpportunity[]
+  excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta & {
     ranking: {
       scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
