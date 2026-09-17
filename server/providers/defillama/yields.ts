@@ -2,6 +2,8 @@ import { ProviderError } from '../errors'
 
 const DEFILLAMA_YIELDS_POOLS_URL = 'https://yields.llama.fi/pools'
 const PROVIDER_NAME = 'DefiLlama'
+const CACHE_MS = 60_000
+let cachedResult: { expiresAt: number, promise: Promise<DefiLlamaYieldFetchResult> } | null = null
 
 export interface DefiLlamaYieldPool {
   pool: string
@@ -131,7 +133,7 @@ function parseDefiLlamaPoolsResponse (payload: unknown): DefiLlamaYieldPool[] {
   return payload.data.map(parseDefiLlamaYieldPool)
 }
 
-export async function fetchDefiLlamaYieldPools (): Promise<DefiLlamaYieldFetchResult> {
+async function fetchFreshDefiLlamaYieldPools (): Promise<DefiLlamaYieldFetchResult> {
   const fetchedAt = new Date().toISOString()
 
   let response: Response
@@ -165,4 +167,12 @@ export async function fetchDefiLlamaYieldPools (): Promise<DefiLlamaYieldFetchRe
     pools,
     fetchedAt
   }
+}
+
+export async function fetchDefiLlamaYieldPools (): Promise<DefiLlamaYieldFetchResult> {
+  if (cachedResult && cachedResult.expiresAt > Date.now()) return cachedResult.promise
+  const promise = fetchFreshDefiLlamaYieldPools()
+  cachedResult = { expiresAt: Date.now() + CACHE_MS, promise }
+  promise.catch(() => { cachedResult = null })
+  return promise
 }

@@ -244,7 +244,7 @@ function dataSourceHelp (kinds: Set<DataSourceKind>): string {
   if (kinds.size > 1) return '此協議目前混合多種資料來源。'
   if (kinds.has('OFFICIAL_API')) return '由協議官方提供的 API 資料。'
   if (kinds.has('ONCHAIN')) return '直接讀取 Ethereum 上的產品合約。'
-  return '官方來源暫時不可用，目前採用 DefiLlama 備援資料。'
+  return '此候選目前採用第三方聚合資料，尚未由協議官方來源覆蓋。'
 }
 
 function rateHelp (rateType: RateType): string {
@@ -842,7 +842,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </p>
 
         <p class="market-method-note">
-          APR 未計複利，APY 已計複利，兩者不直接互相比較。官方 API／鏈上資料優先，第三方資料僅作故障備援。
+          收錄 TVL 1,000 萬美元以上的單一資產收益產品，每個協議最多 3 個；官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
         </p>
 
         <p
@@ -865,7 +865,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             class="market-notice"
           >
             部分官方來源暫時無法更新。<template v-if="fallbackProtocolNames.length">
-              {{ fallbackProtocolNames.join('、') }} 目前顯示第三方備援資料。
+              {{ fallbackProtocolNames.join('、') }} 包含已標示的第三方資料。
             </template>
           </p>
 
