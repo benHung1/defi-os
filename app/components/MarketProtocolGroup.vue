@@ -23,7 +23,7 @@ defineProps<{
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
         <span class="source">{{ sourceLabel }}</span>
-        <span class="tvl">支援產品 TVL {{ tvlLabel }}</span>
+        <span class="tvl">TVL {{ tvlLabel }}</span>
         <span class="count">{{ rows.length }} 個產品</span>
       </span>
       <span class="chevron" aria-hidden="true" />

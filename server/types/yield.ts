@@ -1,5 +1,5 @@
 export type RateType = 'APR' | 'APY'
-export type DataSourceKind = 'OFFICIAL_API' | 'THIRD_PARTY_AGGREGATOR'
+export type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 

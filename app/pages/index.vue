@@ -25,7 +25,7 @@ interface Dashboard {
 
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
-type DataSourceKind = 'OFFICIAL_API' | 'THIRD_PARTY_AGGREGATOR'
+type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
 type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 type ProviderFetchStatus = 'ok' | 'error'
 
@@ -342,9 +342,13 @@ const marketGroups = computed(() => {
     .map(group => ({
       ...group,
       tvlLabel: formatCompactUsd(group.totalTvlUsd),
-      sourceLabel: group.sourceKinds.size === 1 && group.sourceKinds.has('OFFICIAL_API')
-        ? '官方資料'
-        : '第三方資料'
+      sourceLabel: group.sourceKinds.size === 1
+        ? group.sourceKinds.has('OFFICIAL_API')
+          ? '官方資料'
+          : group.sourceKinds.has('ONCHAIN')
+            ? '鏈上資料'
+            : '第三方資料'
+        : '混合資料'
     }))
 })
 
@@ -359,7 +363,7 @@ const hasMoreMarketProtocols = computed(() => {
 const marketRankingLabel = computed(() => {
   const ranking = marketDashboard.value?.meta.ranking
   if (!ranking) {
-    return 'DeFi OS 已支援的 Ethereum USDC 協議，依支援產品 TVL 合計排序'
+    return 'DeFi OS 已支援的 Ethereum USDC 協議，依 TVL 合計排序'
   }
 
   return `DeFi OS 已支援的 Ethereum USDC 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
