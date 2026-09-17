@@ -6,6 +6,9 @@ interface MarketRow {
   chain: string
   rateLabel: string
   tvlLabel: string
+  sourceLabel: string
+  fetchedAtLabel: string
+  rateHelp: string
   productUrl?: string
 }
 
@@ -14,6 +17,7 @@ defineProps<{
   rows: MarketRow[]
   tvlLabel: string
   sourceLabel: string
+  sourceHelp: string
 }>()
 </script>
 
@@ -22,7 +26,7 @@ defineProps<{
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
-        <span class="source">{{ sourceLabel }}</span>
+        <span class="source" :title="sourceHelp">{{ sourceLabel }}</span>
         <span class="tvl">TVL {{ tvlLabel }}</span>
         <span class="count">{{ rows.length }} 個產品</span>
       </span>
@@ -38,6 +42,9 @@ defineProps<{
         :chain="row.chain"
         :rate-label="row.rateLabel"
         :tvl-label="row.tvlLabel"
+        :source-label="row.sourceLabel"
+        :fetched-at-label="row.fetchedAtLabel"
+        :rate-help="row.rateHelp"
         :product-url="row.productUrl"
       />
     </ul>

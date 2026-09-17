@@ -228,6 +228,25 @@ function formatFetchedAt (fetchedAt: string): string {
   return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}`
 }
 
+function opportunitySourceLabel (opportunity: YieldOpportunity): string {
+  if (opportunity.sourceKind === 'ONCHAIN') return `${opportunity.protocol} 主網合約`
+  if (opportunity.sourceKind === 'THIRD_PARTY_AGGREGATOR') return 'DefiLlama 第三方備援'
+  return `${opportunity.protocol} 官方 API`
+}
+
+function dataSourceHelp (kinds: Set<DataSourceKind>): string {
+  if (kinds.size > 1) return '此協議目前混合多種資料來源。'
+  if (kinds.has('OFFICIAL_API')) return '由協議官方提供的 API 資料。'
+  if (kinds.has('ONCHAIN')) return '直接讀取 Ethereum 上的產品合約。'
+  return '官方來源暫時不可用，目前採用 DefiLlama 備援資料。'
+}
+
+function rateHelp (rateType: RateType): string {
+  return rateType === 'APY'
+    ? 'APY 已計入複利效果；請只與相同 APY 口徑直接比較。'
+    : 'APR 是未計複利的年化利率；請只與相同 APR 口徑直接比較。'
+}
+
 function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
   const base = opportunityTypeLabel(opportunity.opportunityType)
   return opportunity.productVersion ? `${base} ${opportunity.productVersion}` : base
@@ -312,6 +331,9 @@ const marketGroups = computed(() => {
       chain: string
       rateLabel: string
       tvlLabel: string
+      sourceLabel: string
+      fetchedAtLabel: string
+      rateHelp: string
       productUrl?: string
     }>
   }>()
@@ -332,6 +354,9 @@ const marketGroups = computed(() => {
       chain: opportunity.chain,
       rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
       tvlLabel: formatCompactUsd(opportunity.tvlUsd),
+      sourceLabel: `資料來源：${opportunitySourceLabel(opportunity)}`,
+      fetchedAtLabel: formatFetchedAt(opportunity.fetchedAt),
+      rateHelp: rateHelp(opportunity.rateType),
       productUrl: opportunity.productUrl
     })
     groups.set(opportunity.protocol, group)
@@ -342,6 +367,7 @@ const marketGroups = computed(() => {
     .map(group => ({
       ...group,
       tvlLabel: formatCompactUsd(group.totalTvlUsd),
+      sourceHelp: dataSourceHelp(group.sourceKinds),
       sourceLabel: group.sourceKinds.size === 1
         ? group.sourceKinds.has('OFFICIAL_API')
           ? '官方資料'
@@ -351,6 +377,10 @@ const marketGroups = computed(() => {
         : '混合資料'
     }))
 })
+
+const fallbackProtocolNames = computed(() => marketGroups.value
+  .filter(group => group.sourceKinds.has('THIRD_PARTY_AGGREGATOR'))
+  .map(group => group.protocol))
 
 const visibleMarketGroups = computed(() => marketGroups.value)
 
@@ -696,6 +726,10 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           {{ marketRankingLabel }}
         </p>
 
+        <p class="market-method-note">
+          APR 未計複利，APY 已計複利，兩者不直接互相比較。官方 API／鏈上資料優先，第三方資料僅作故障備援。
+        </p>
+
         <p
           v-if="marketPending"
           class="market-status"
@@ -715,7 +749,9 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             v-if="hasPartialProviderFailure"
             class="market-notice"
           >
-            部分市場資料來源暫時無法更新。
+            部分官方來源暫時無法更新。<template v-if="fallbackProtocolNames.length">
+              {{ fallbackProtocolNames.join('、') }} 目前顯示第三方備援資料。
+            </template>
           </p>
 
           <p
@@ -733,6 +769,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
               :rows="group.rows"
               :tvl-label="group.tvlLabel"
               :source-label="group.sourceLabel"
+              :source-help="group.sourceHelp"
             />
           </div>
 
@@ -1052,6 +1089,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .market-scope {
   margin: 14px 0 0;
   font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.market-method-note {
+  margin: 7px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
   color: var(--color-text-muted);
 }
 

@@ -5,6 +5,9 @@ defineProps<{
   chain: string
   rateLabel: string
   tvlLabel: string
+  sourceLabel: string
+  fetchedAtLabel: string
+  rateHelp: string
   productUrl?: string
 }>()
 </script>
@@ -16,6 +19,8 @@ defineProps<{
       <p class="meta">
         <span>{{ typeLabel }}</span>
         <span>{{ chain }}</span>
+        <span>{{ sourceLabel }}</span>
+        <span>更新 {{ fetchedAtLabel }}</span>
       </p>
       <p class="links">
         <a
@@ -28,7 +33,7 @@ defineProps<{
     </div>
 
     <div class="metrics">
-      <p class="rate">{{ rateLabel }}</p>
+      <p class="rate" :title="rateHelp">{{ rateLabel }} <span aria-hidden="true">ⓘ</span></p>
       <p class="tvl">TVL {{ tvlLabel }}</p>
     </div>
   </li>
@@ -99,6 +104,13 @@ defineProps<{
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
+}
+
+.rate span {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  cursor: help;
 }
 
 .tvl {
