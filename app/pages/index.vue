@@ -855,11 +855,11 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           @change="applyMarketScope"
         />
 
-        <div v-if="hasActiveMarketFilters" class="market-filter-actions">
+        <div class="market-filter-actions">
           <button
             type="button"
             class="market-clear-all"
-            :disabled="marketRefreshing || marketUpdating"
+            :disabled="!hasActiveMarketFilters || marketRefreshing || marketUpdating"
             @click="clearAllMarketFilters"
           >
             清除所有篩選
