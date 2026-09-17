@@ -265,6 +265,7 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
+const { isConnected: isWalletConnected } = useWalletSession()
 const route = useRoute()
 const router = useRouter()
 
@@ -639,6 +640,20 @@ const personalComparisonRows = computed(() => {
 })
 
 const hero = computed(() => {
+  if (!isWalletConnected.value) {
+    return {
+      level: 'healthy' as const,
+      question: '開始前，先連接你的錢包',
+      headline: '連接錢包後，查看真正與你相關的 DeFi 提醒',
+      statement: 'DeFi OS 會依你的公開地址整理資產與部位，再從市場資料中找出值得你留意的差異。',
+      evidence: [
+        '只讀取公開地址與鏈上公開資料',
+        '不要求交易、Token Approval 或簽名',
+        '你可以隨時中斷連線'
+      ]
+    }
+  }
+
   const position = displayPosition.value
   const rate = currentPositionRate.value
   const higherCount = higherYieldCandidates.value.length
@@ -692,20 +707,23 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 <template>
   <div class="page">
     <header class="header">
-      <div class="brand">
-        <span class="mark">D</span>
-        <span class="name">DeFi OS</span>
-      </div>
-      <div class="header-actions">
-        <p class="greeting">{{ dashboard.greeting }}，{{ dashboard.date }}</p>
-        <button
-          type="button"
-          class="theme-toggle"
-          :aria-label="toggleLabel"
-          @click="toggleTheme"
-        >
-          {{ toggleLabel }}
-        </button>
+      <div class="header-inner">
+        <div class="brand">
+          <span class="mark">D</span>
+          <span class="name">DeFi OS</span>
+        </div>
+        <div class="header-actions">
+          <p class="greeting">{{ dashboard.greeting }}，{{ dashboard.date }}</p>
+          <button
+            type="button"
+            class="theme-toggle"
+            :aria-label="toggleLabel"
+            @click="toggleTheme"
+          >
+            {{ toggleLabel }}
+          </button>
+          <WalletReadOnlyConnect />
+        </div>
       </div>
     </header>
 
@@ -736,7 +754,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         <template v-else>
           <p class="hero-question">{{ hero.question }}</p>
           <h1 class="hero-headline">
-            <span class="hero-dot">{{ isHealthy ? '🟢' : '🟡' }}</span>
+            <span class="hero-dot">{{ !isWalletConnected ? '○' : isHealthy ? '🟢' : '🟡' }}</span>
             {{ hero.headline }}
           </h1>
           <p class="hero-statement">{{ hero.statement }}</p>
@@ -756,11 +774,10 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         <div class="section-head portfolio-section-head">
           <div>
             <h2>投資組合</h2>
-            <p>我的資產現在在哪裡？</p>
+            <p>{{ isWalletConnected ? '我的資產現在在哪裡？' : '連接後，這裡會整理你的鏈上資產與 DeFi 部位。' }}</p>
           </div>
-          <WalletReadOnlyConnect />
         </div>
-        <div class="grid grid-4">
+        <div v-if="isWalletConnected" class="grid grid-4">
           <SummaryCard
             v-for="item in dashboard.portfolio"
             :key="item.label"
@@ -768,6 +785,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             :value="item.value"
             :note="item.note"
           />
+        </div>
+        <div v-else class="wallet-empty-state">
+          <div class="wallet-empty-icon" aria-hidden="true">◎</div>
+          <div>
+            <strong>尚未連接錢包</strong>
+            <p>請從右上角連接錢包。完成後，我們只使用公開地址查詢鏈上資料。</p>
+          </div>
         </div>
       </section>
 
@@ -777,7 +801,16 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           <p>我的目前部位跟市場差多少？</p>
         </div>
 
-        <div class="current-position">
+        <div v-if="!isWalletConnected" class="wallet-empty-state compact">
+          <div class="wallet-empty-icon" aria-hidden="true">$</div>
+          <div>
+            <strong>連接後才能比較你的 USDC 部位</strong>
+            <p>我們會先辨識你持有 USDC 的鏈與協議，再與相同口徑的市場產品比較。</p>
+          </div>
+        </div>
+
+        <template v-else>
+          <div class="current-position">
           <p class="current-label">目前部位（示意 fixture，非錢包讀取）</p>
           <p class="current-value">
             {{ displayPosition.amount.toLocaleString('en-US') }} {{ displayPosition.asset }}
@@ -845,6 +878,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           <p class="market-notice">
             年化差額依示意部位估算，不是保證收益。
           </p>
+          </template>
         </template>
       </section>
 
@@ -1087,15 +1121,30 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .page {
   max-width: 960px;
   margin: 0 auto;
-  padding: 40px 24px 64px;
+  padding: 104px 24px 64px;
 }
 
 .header {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.header-inner {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+  max-width: 960px;
+  min-height: 68px;
+  margin: 0 auto;
+  padding: 10px 24px;
 }
 
 .brand {
@@ -1156,8 +1205,11 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   display: flex;
   flex-direction: column;
   gap: 56px;
-  margin-top: 56px;
+  margin-top: 24px;
 }
+
+.header :deep(.wallet-connect) { align-items: center; }
+.header :deep(.wallet-connect p) { display: none; }
 
 .hero {
   padding: 40px;
@@ -1278,6 +1330,22 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   align-items: flex-start;
   justify-content: space-between;
 }
+
+.wallet-empty-state {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  min-height: 118px;
+  padding: 24px;
+  border: 1px dashed var(--color-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+}
+
+.wallet-empty-state.compact { min-height: auto; }
+.wallet-empty-state strong { color: var(--color-text-primary); font-size: .9375rem; }
+.wallet-empty-state p { margin: 6px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }
+.wallet-empty-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid color-mix(in srgb, #168f87 48%, var(--color-border)); border-radius: 50%; color: #168f87; font-weight: 700; }
 
 .market-filter-actions {
   display: flex;
@@ -1664,6 +1732,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .market-updating { color: var(--color-text-secondary); }
 
 @media (max-width: 760px) {
+  .page { padding-top: 92px; }
+  .header-inner { min-height: 60px; padding: 8px 16px; }
+  .greeting { display: none; }
+  .header-actions { gap: 8px; }
+  .theme-toggle { padding: 7px 9px; }
+  .header :deep(.connect-button),
+  .header :deep(.setup-button) { padding: 8px 10px; }
   .portfolio-section-head { flex-direction: column; }
   .market-tools { align-items: stretch; flex-direction: column; }
   .market-search { min-width: 100%; }

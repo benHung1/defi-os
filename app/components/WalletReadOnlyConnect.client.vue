@@ -4,6 +4,11 @@ import { useAppKit, useAppKitAccount } from '@reown/appkit/vue'
 const configured = computed(() => Boolean(useRuntimeConfig().public.reownProjectId.trim()))
 const { open } = useAppKit()
 const account = useAppKitAccount({ namespace: 'eip155' })
+const { address: sessionAddress } = useWalletSession()
+
+watchEffect(() => {
+  sessionAddress.value = account.value.isConnected ? account.value.address ?? null : null
+})
 
 const buttonLabel = computed(() => {
   const { address, isConnected } = account.value
