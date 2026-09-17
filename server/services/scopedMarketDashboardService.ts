@@ -6,8 +6,7 @@ import { resolveFreshnessStatus } from '../types/yield'
 import { getUsdcMarketDashboard } from './usdcMarketDashboardService'
 import { selectDefiLlamaCandidateProducts } from './market-selectors/defillamaCandidateSelector'
 
-const MAX_PRODUCTS_PER_PROTOCOL = 3
-const MAX_ELIGIBLE_PRODUCTS = 30
+const MAX_ELIGIBLE_PRODUCTS = 100
 
 export function isSupportedCombination (chain: SupportedMarketChain, asset: SupportedMarketAsset): boolean {
   return getMarketChain(chain).assets.includes(asset)
@@ -54,15 +53,8 @@ export async function getMultiScopedMarketDashboard (
     item.sourcePoolId
   ].some(value => value?.toLocaleLowerCase().includes(query)))
   const limit = options.limit ?? 5
-  const perProtocol = new Map<string, number>()
   const rankedProducts = [...allData]
     .sort((left, right) => (right.tvlUsd ?? 0) - (left.tvlUsd ?? 0))
-    .filter((product) => {
-      const count = perProtocol.get(product.protocol) ?? 0
-      if (count >= MAX_PRODUCTS_PER_PROTOCOL) return false
-      perProtocol.set(product.protocol, count + 1)
-      return true
-    })
     .slice(0, MAX_ELIGIBLE_PRODUCTS)
   const visibleProducts = rankedProducts.slice(0, limit)
   const fetchedAt = successful.map(result => result.meta.fetchedAt).sort().at(-1)!

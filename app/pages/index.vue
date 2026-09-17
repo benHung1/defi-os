@@ -135,8 +135,8 @@ const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
 
 /** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
 const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
-const MARKET_INITIAL_PRODUCT_LIMIT = 10
 const MARKET_ALL_PRODUCT_LIMIT = 100
+const MARKET_INITIAL_PROTOCOL_LIMIT = 5
 
 const dashboard: Dashboard = {
   greeting: '早安',
@@ -305,7 +305,7 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
   marketUpdating.value = true
   marketChains.value = scope.chains
   marketAssets.value = scope.assets
-  showAllMarketProducts.value = false
+  showAllMarketProtocols.value = false
   marketRefreshMessage.value = null
   const { chain: _chain, asset: _asset, ...query } = route.query
   await router.replace({ query: {
@@ -315,7 +315,7 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
     q: marketSearch.value || undefined
   } })
   try {
-    const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT))
+    const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT))
     if (requestId === marketScopeRequestId) marketDashboard.value = response
   } catch {
     if (requestId === marketScopeRequestId) marketRefreshMessage.value = '篩選更新失敗，畫面保留上一份資料。'
@@ -348,10 +348,10 @@ const {
   pending: marketPending,
   error: marketError
 } = await useFetch<UsdcMarketDashboardResponse>(
-  marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT)
+  marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT)
 )
 
-const showAllMarketProducts = ref(false)
+const showAllMarketProtocols = ref(false)
 const marketRefreshing = ref(false)
 const marketRefreshMessage = ref<string | null>(null)
 
@@ -361,7 +361,7 @@ async function refreshMarket (): Promise<void> {
 
   try {
     const refreshed = await $fetch<UsdcMarketDashboardResponse>(
-      marketDashboardUrl(showAllMarketProducts.value ? MARKET_ALL_PRODUCT_LIMIT : MARKET_INITIAL_PRODUCT_LIMIT, true)
+      marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT, true)
     )
     marketDashboard.value = refreshed
 
@@ -380,21 +380,8 @@ async function refreshMarket (): Promise<void> {
   }
 }
 
-async function toggleMarketProducts (): Promise<void> {
-  if (showAllMarketProducts.value) {
-    showAllMarketProducts.value = false
-    const ranked = await $fetch<UsdcMarketDashboardResponse>(
-      marketDashboardUrl(MARKET_INITIAL_PRODUCT_LIMIT)
-    )
-    marketDashboard.value = ranked
-    return
-  }
-
-  const ranked = await $fetch<UsdcMarketDashboardResponse>(
-    marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT)
-  )
-  marketDashboard.value = ranked
-  showAllMarketProducts.value = true
+function toggleMarketProtocols (): void {
+  showAllMarketProtocols.value = !showAllMarketProtocols.value
 }
 
 const {
@@ -472,13 +459,11 @@ const fallbackProtocolNames = computed(() => marketGroups.value
   .filter(group => group.sourceKinds.has('THIRD_PARTY_AGGREGATOR'))
   .map(group => group.protocol))
 
-const visibleMarketGroups = computed(() => marketGroups.value)
+const visibleMarketGroups = computed(() => showAllMarketProtocols.value
+  ? marketGroups.value
+  : marketGroups.value.slice(0, MARKET_INITIAL_PROTOCOL_LIMIT))
 
-const hasMoreMarketProducts = computed(() => {
-  const ranking = marketDashboard.value?.meta.ranking
-  return showAllMarketProducts.value
-    || Boolean(ranking && ranking.totalEligibleProducts > ranking.productCount)
-})
+const hasMoreMarketProtocols = computed(() => marketGroups.value.length > MARKET_INITIAL_PROTOCOL_LIMIT)
 
 const marketRankingLabel = computed(() => {
   const ranking = marketDashboard.value?.meta.ranking
@@ -842,7 +827,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </p>
 
         <p class="market-method-note">
-          收錄 TVL 1,000 萬美元以上的單一資產收益產品，每個協議最多 3 個；官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
+          收錄 TVL 1,000 萬美元以上的單一資產收益產品；首頁先顯示排名較前的協議，展開後可繼續查看該協議的合格產品。官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
         </p>
 
         <p
@@ -893,14 +878,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </div>
 
           <button
-            v-if="hasMoreMarketProducts"
+            v-if="hasMoreMarketProtocols"
             type="button"
             class="market-more"
-            @click="toggleMarketProducts"
+            @click="toggleMarketProtocols"
           >
-            {{ showAllMarketProducts
-              ? `收合至 TVL 前 ${MARKET_INITIAL_PRODUCT_LIMIT} 個產品`
-              : `顯示全部 ${marketDashboard?.meta.ranking.totalEligibleProducts ?? 0} 個產品` }}
+            {{ showAllMarketProtocols
+              ? `收合至前 ${MARKET_INITIAL_PROTOCOL_LIMIT} 個協議`
+              : `顯示全部 ${marketGroups.length} 個協議` }}
           </button>
 
           <details

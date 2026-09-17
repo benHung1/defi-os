@@ -36,7 +36,7 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
       <span class="summary-meta">
         <span class="source" :title="sourceHelp">{{ sourceLabel }}</span>
         <span class="tvl">所列 TVL {{ tvlLabel }}</span>
-        <span class="count">入榜 {{ rows.length }} 個</span>
+        <span class="count">{{ rows.length }} 個產品</span>
       </span>
       <span class="chevron" aria-hidden="true" />
     </summary>

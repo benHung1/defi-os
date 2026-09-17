@@ -5,8 +5,7 @@ import type { ExcludedMarketObservation, OpportunityType, YieldOpportunity } fro
 import { evaluateObservationDataQuality } from '../../types/yield'
 
 const MIN_TVL_USD = 10_000_000
-const MAX_PRODUCTS_PER_PROTOCOL = 3
-const MAX_CANDIDATE_PRODUCTS = 30
+const MAX_CANDIDATE_PRODUCTS = 100
 const SOURCE_URL = 'https://yields.llama.fi/pools'
 const COMPLEX_PRODUCT_META = /\b(lp|leveraged|loop|carry)\b/i
 
@@ -86,16 +85,12 @@ export function selectDefiLlamaCandidateProducts (
     })
   }
 
-  const perProtocol = new Map<string, number>()
   const identities = new Set<string>()
   const opportunities = candidates.sort((left, right) => (right.tvlUsd ?? 0) - (left.tvlUsd ?? 0))
     .filter((candidate) => {
       const identity = `${candidate.protocol}:${candidate.chain}:${candidate.asset}:${candidate.product}`
       if (identities.has(identity)) return false
       identities.add(identity)
-      const count = perProtocol.get(candidate.protocol) ?? 0
-      if (count >= MAX_PRODUCTS_PER_PROTOCOL) return false
-      perProtocol.set(candidate.protocol, count + 1)
       return true
     })
     .slice(0, MAX_CANDIDATE_PRODUCTS)
