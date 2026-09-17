@@ -838,25 +838,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             <h2>DeFi 市場</h2>
             <p>{{ marketScopeLabel }}</p>
           </div>
-          <div class="market-head-actions">
-            <button
-              type="button"
-              class="market-refresh"
-              :disabled="marketRefreshing || marketUpdating"
-              @click="refreshMarket"
-            >
-              {{ marketRefreshing ? '更新中…' : '重新整理' }}
-            </button>
-            <button
-              v-if="hasActiveMarketFilters"
-              type="button"
-              class="market-clear-all"
-              :disabled="marketRefreshing || marketUpdating"
-              @click="clearAllMarketFilters"
-            >
-              清除所有篩選
-            </button>
-          </div>
+          <button
+            type="button"
+            class="market-refresh"
+            :disabled="marketRefreshing || marketUpdating"
+            @click="refreshMarket"
+          >
+            {{ marketRefreshing ? '更新中…' : '重新整理' }}
+          </button>
         </div>
 
         <MarketFilterPanel
@@ -865,6 +854,17 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           :options="chainOptions"
           @change="applyMarketScope"
         />
+
+        <div v-if="hasActiveMarketFilters" class="market-filter-actions">
+          <button
+            type="button"
+            class="market-clear-all"
+            :disabled="marketRefreshing || marketUpdating"
+            @click="clearAllMarketFilters"
+          >
+            清除所有篩選
+          </button>
+        </div>
 
         <div class="market-tools">
           <div class="market-presets" aria-label="快速資產篩選">
@@ -1242,11 +1242,10 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   justify-content: space-between;
 }
 
-.market-head-actions {
+.market-filter-actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
+  justify-content: flex-end;
+  margin-top: 6px;
 }
 
 .market-refresh,
