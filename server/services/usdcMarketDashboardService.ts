@@ -120,12 +120,40 @@ export function selectUsdcMarketDashboardOpportunities (
  * Does not fetch providers, alter DataQuality, or produce recommendations.
  */
 export async function getUsdcMarketDashboard (
-  options: { forceRefresh?: boolean } = {}
+  options: { forceRefresh?: boolean, limit?: number } = {}
 ): Promise<UsdcMarketDashboardResponse> {
   const market = await getUsdcMarketOpportunities(options)
+  const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(market.data)
+  const protocolTvls = new Map<string, number>()
+
+  for (const opportunity of dashboardOpportunities) {
+    protocolTvls.set(
+      opportunity.protocol,
+      (protocolTvls.get(opportunity.protocol) ?? 0) + (opportunity.tvlUsd ?? 0)
+    )
+  }
+
+  const rankedProtocols = Array.from(protocolTvls.entries())
+    .sort((left, right) => {
+      const tvlDiff = right[1] - left[1]
+      return tvlDiff !== 0 ? tvlDiff : left[0].localeCompare(right[0])
+    })
+  const limit = options.limit ?? 5
+  const visibleProtocols = new Set(
+    rankedProtocols.slice(0, limit).map(([protocol]) => protocol)
+  )
 
   return {
-    data: selectUsdcMarketDashboardOpportunities(market.data),
-    meta: market.meta
+    data: dashboardOpportunities.filter(opportunity => visibleProtocols.has(opportunity.protocol)),
+    meta: {
+      ...market.meta,
+      ranking: {
+        scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS',
+        sort: 'tvl',
+        limit,
+        protocolCount: visibleProtocols.size,
+        totalEligibleProtocols: rankedProtocols.length
+      }
+    }
   }
 }

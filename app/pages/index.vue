@@ -63,7 +63,15 @@ interface YieldResponseMeta {
 
 interface UsdcMarketDashboardResponse {
   data: YieldOpportunity[]
-  meta: YieldResponseMeta
+  meta: YieldResponseMeta & {
+    ranking: {
+      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
+      sort: 'tvl'
+      limit: number
+      protocolCount: number
+      totalEligibleProtocols: number
+    }
+  }
 }
 
 interface UsdcCurrentPosition {
@@ -212,7 +220,9 @@ const {
   data: marketDashboard,
   pending: marketPending,
   error: marketError
-} = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
+} = await useFetch<UsdcMarketDashboardResponse>(
+  `/api/market/usdc/dashboard?limit=${MARKET_INITIAL_PROTOCOL_LIMIT}&sort=tvl&chain=ethereum&asset=usdc`
+)
 
 const showAllMarketProtocols = ref(false)
 const marketRefreshing = ref(false)
@@ -224,7 +234,7 @@ async function refreshMarket (): Promise<void> {
 
   try {
     const refreshed = await $fetch<UsdcMarketDashboardResponse>(
-      '/api/market/usdc/dashboard?refresh=1'
+      `/api/market/usdc/dashboard?limit=${showAllMarketProtocols.value ? 20 : MARKET_INITIAL_PROTOCOL_LIMIT}&sort=tvl&chain=ethereum&asset=usdc&refresh=1`
     )
     marketDashboard.value = refreshed
 
@@ -241,6 +251,23 @@ async function refreshMarket (): Promise<void> {
   } finally {
     marketRefreshing.value = false
   }
+}
+
+async function toggleMarketProtocols (): Promise<void> {
+  if (showAllMarketProtocols.value) {
+    showAllMarketProtocols.value = false
+    const ranked = await $fetch<UsdcMarketDashboardResponse>(
+      `/api/market/usdc/dashboard?limit=${MARKET_INITIAL_PROTOCOL_LIMIT}&sort=tvl&chain=ethereum&asset=usdc`
+    )
+    marketDashboard.value = ranked
+    return
+  }
+
+  const ranked = await $fetch<UsdcMarketDashboardResponse>(
+    '/api/market/usdc/dashboard?limit=20&sort=tvl&chain=ethereum&asset=usdc'
+  )
+  marketDashboard.value = ranked
+  showAllMarketProtocols.value = true
 }
 
 const {
@@ -296,14 +323,21 @@ const marketGroups = computed(() => {
     }))
 })
 
-const visibleMarketGroups = computed(() => {
-  return showAllMarketProtocols.value
-    ? marketGroups.value
-    : marketGroups.value.slice(0, MARKET_INITIAL_PROTOCOL_LIMIT)
-})
+const visibleMarketGroups = computed(() => marketGroups.value)
 
 const hasMoreMarketProtocols = computed(() => {
-  return marketGroups.value.length > MARKET_INITIAL_PROTOCOL_LIMIT
+  const ranking = marketDashboard.value?.meta.ranking
+  return showAllMarketProtocols.value
+    || Boolean(ranking && ranking.totalEligibleProtocols > ranking.protocolCount)
+})
+
+const marketRankingLabel = computed(() => {
+  const ranking = marketDashboard.value?.meta.ranking
+  if (!ranking) {
+    return 'DeFi OS 已支援的 Ethereum USDC 協議，依支援產品 TVL 合計排序'
+  }
+
+  return `DeFi OS 已支援的 Ethereum USDC 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -624,7 +658,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </div>
 
         <p class="market-scope">
-          依支援 USDC 產品 TVL 合計排序，顯示主要協議
+          {{ marketRankingLabel }}
         </p>
 
         <p
@@ -670,7 +704,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             v-if="hasMoreMarketProtocols"
             type="button"
             class="market-more"
-            @click="showAllMarketProtocols = !showAllMarketProtocols"
+            @click="toggleMarketProtocols"
           >
             {{ showAllMarketProtocols
               ? `收合至前 ${MARKET_INITIAL_PROTOCOL_LIMIT} 個協議`

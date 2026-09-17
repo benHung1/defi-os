@@ -123,7 +123,15 @@ export interface UsdcMarketResponse {
  */
 export interface UsdcMarketDashboardResponse {
   data: YieldOpportunity[]
-  meta: YieldResponseMeta
+  meta: YieldResponseMeta & {
+    ranking: {
+      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
+      sort: 'tvl'
+      limit: number
+      protocolCount: number
+      totalEligibleProtocols: number
+    }
+  }
 }
 
 const FRESH_MS = 15 * 60 * 1000
