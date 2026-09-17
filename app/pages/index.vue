@@ -317,7 +317,9 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
     ...query,
     chains: scope.chains.length > 0 ? scope.chains.join(',') : 'all',
     assets: scope.assets.length > 0 ? scope.assets.map(asset => asset.toLowerCase()).join(',') : 'all',
-    q: marketSearch.value || undefined
+    q: marketSearch.value || undefined,
+    sort: marketSort.value === 'tvl' ? undefined : marketSort.value,
+    rateType: marketSort.value === 'rate' ? marketRateType.value.toLowerCase() : undefined
   } })
   try {
     const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_ALL_PRODUCT_LIMIT))
@@ -347,6 +349,20 @@ async function applyMarketSort (): Promise<void> {
     sort: marketSort.value === 'tvl' ? undefined : marketSort.value,
     rateType: marketSort.value === 'rate' ? marketRateType.value.toLowerCase() : undefined
   } })
+}
+
+const hasActiveMarketFilters = computed(() =>
+  marketChains.value.length > 0
+  || marketAssets.value.length > 0
+  || marketSearch.value.length > 0
+  || marketSort.value !== 'tvl')
+
+async function clearAllMarketFilters (): Promise<void> {
+  marketSearchDraft.value = ''
+  marketSearch.value = ''
+  marketSort.value = 'tvl'
+  marketRateType.value = 'APY'
+  await applyMarketScope({ chains: [], assets: [] })
 }
 
 function applyAssetPreset (assets: MarketAsset[]): void {
@@ -822,14 +838,25 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             <h2>DeFi 市場</h2>
             <p>{{ marketScopeLabel }}</p>
           </div>
-          <button
-            type="button"
-            class="market-refresh"
-            :disabled="marketRefreshing"
-            @click="refreshMarket"
-          >
-            {{ marketRefreshing ? '更新中…' : '重新整理' }}
-          </button>
+          <div class="market-head-actions">
+            <button
+              type="button"
+              class="market-refresh"
+              :disabled="marketRefreshing || marketUpdating"
+              @click="refreshMarket"
+            >
+              {{ marketRefreshing ? '更新中…' : '重新整理' }}
+            </button>
+            <button
+              v-if="hasActiveMarketFilters"
+              type="button"
+              class="market-clear-all"
+              :disabled="marketRefreshing || marketUpdating"
+              @click="clearAllMarketFilters"
+            >
+              清除所有篩選
+            </button>
+          </div>
         </div>
 
         <MarketFilterPanel
@@ -1215,6 +1242,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   justify-content: space-between;
 }
 
+.market-head-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .market-refresh,
 .market-more {
   border: 1px solid var(--color-border);
@@ -1240,6 +1274,21 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   cursor: wait;
   opacity: 0.65;
 }
+
+.market-clear-all {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.market-clear-all:hover:not(:disabled) { color: var(--color-text-primary); }
+.market-clear-all:disabled { cursor: wait; opacity: .6; }
 
 .market-scope {
   margin: 14px 0 0;
