@@ -859,6 +859,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           <button
             type="button"
             class="market-clear-all"
+            :class="{ busy: marketRefreshing || marketUpdating }"
             :disabled="!hasActiveMarketFilters || marketRefreshing || marketUpdating"
             @click="clearAllMarketFilters"
           >
@@ -904,9 +905,20 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           {{ marketRankingLabel }}
         </p>
 
-        <p class="market-method-note">
-          收錄 TVL 1,000 萬美元以上的單一資產收益產品；首頁先顯示排名較前的協議，展開後可繼續查看該協議的合格產品。官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
-        </p>
+        <div class="market-method-note">
+          <span>排名與收錄規則</span>
+          <button
+            type="button"
+            class="method-help"
+            aria-label="查看排名與收錄規則"
+            aria-describedby="market-method-tooltip"
+          >
+            !
+            <span id="market-method-tooltip" class="method-tooltip" role="tooltip">
+              收錄 TVL 1,000 萬美元以上的單一資產收益產品；首頁先顯示排名較前的協議，展開後可繼續查看該協議的合格產品。官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
+            </span>
+          </button>
+        </div>
 
         <p
           v-if="marketPending"
@@ -1287,7 +1299,8 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 }
 
 .market-clear-all:hover:not(:disabled) { color: var(--color-text-primary); }
-.market-clear-all:disabled { cursor: wait; opacity: .6; }
+.market-clear-all:disabled { cursor: default; opacity: .6; }
+.market-clear-all.busy:disabled { cursor: wait; }
 
 .market-scope {
   margin: 14px 0 0;
@@ -1296,10 +1309,58 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 }
 
 .market-method-note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
   margin: 7px 0 0;
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--color-text-muted);
+}
+
+.method-help {
+  position: relative;
+  display: inline-grid;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: help;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  place-items: center;
+}
+
+.method-tooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 50%;
+  width: min(390px, calc(100vw - 48px));
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 18%);
+  color: var(--color-text-body);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.55;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translate(-18px, -3px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.method-help:hover .method-tooltip,
+.method-help:focus-visible .method-tooltip {
+  opacity: 1;
+  transform: translate(-18px, 0);
 }
 
 .market-filters {
