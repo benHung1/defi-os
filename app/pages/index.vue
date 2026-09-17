@@ -26,7 +26,7 @@ interface Dashboard {
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
 type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
-type MarketSort = 'tvl' | 'rate'
+type MarketSort = 'tvl' | 'rate' | 'protocol'
 type MarketChain = string
 type MarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
 interface MarketChainOption { key: MarketChain, label: string, symbol: string, group: 'L1' | 'L2' | 'OTHER', assets: MarketAsset[] }
@@ -275,6 +275,11 @@ const marketChains = ref<MarketChain[]>(chainQuery === 'all' ? [] : [...new Set(
 const marketAssets = ref<MarketAsset[]>(assetQuery.toLowerCase() === 'all' ? [] : [...new Set(initialAssets)])
 const marketSearch = ref(String(route.query.q ?? '').slice(0, 80))
 const marketSearchDraft = ref(marketSearch.value)
+const initialMarketSort = ['tvl', 'rate', 'protocol'].includes(String(route.query.sort))
+  ? String(route.query.sort) as MarketSort
+  : 'tvl'
+const marketSort = ref<MarketSort>(initialMarketSort)
+const marketRateType = ref<RateType>(String(route.query.rateType).toUpperCase() === 'APR' ? 'APR' : 'APY')
 const chainLabel = (key: MarketChain): string => chainOptions.value.find(chain => chain.key === key)?.label ?? key
 const marketScopeLabel = computed(() => {
   if (marketChains.value.length === 0 && marketAssets.value.length === 0) return '全部鏈 · 全部資產'
@@ -333,6 +338,15 @@ async function clearMarketSearch (): Promise<void> {
   marketSearchDraft.value = ''
   marketSearch.value = ''
   await applyMarketScope({ chains: marketChains.value, assets: marketAssets.value })
+}
+
+async function applyMarketSort (): Promise<void> {
+  showAllMarketProtocols.value = false
+  await router.replace({ query: {
+    ...route.query,
+    sort: marketSort.value === 'tvl' ? undefined : marketSort.value,
+    rateType: marketSort.value === 'rate' ? marketRateType.value.toLowerCase() : undefined
+  } })
 }
 
 function applyAssetPreset (assets: MarketAsset[]): void {
@@ -407,6 +421,7 @@ const marketGroups = computed(() => {
       typeLabel: string
       chain: string
       rateLabel: string
+      rate: number
       tvlLabel: string
       sourceLabel: string
       fetchedAtLabel: string
@@ -415,7 +430,19 @@ const marketGroups = computed(() => {
     }>
   }>()
 
-  for (const [index, opportunity] of payload.data.entries()) {
+  const matchingData = marketSort.value === 'rate'
+    ? payload.data.filter(opportunity => opportunity.rateType === marketRateType.value)
+    : payload.data
+  const rankedData = [...matchingData].sort((left, right) => {
+    if (marketSort.value === 'rate') return right.rate - left.rate
+    if (marketSort.value === 'protocol') {
+      const protocolCompare = left.protocol.localeCompare(right.protocol)
+      return protocolCompare || left.product.localeCompare(right.product)
+    }
+    return (right.tvlUsd ?? 0) - (left.tvlUsd ?? 0)
+  })
+
+  for (const [index, opportunity] of rankedData.entries()) {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
       totalTvlUsd: 0,
@@ -431,6 +458,7 @@ const marketGroups = computed(() => {
       typeLabel: opportunityDisplayTypeLabel(opportunity),
       chain: opportunity.chain,
       rateLabel: formatMarketRate(opportunity.rate, opportunity.rateType),
+      rate: opportunity.rate,
       tvlLabel: formatCompactUsd(opportunity.tvlUsd),
       sourceLabel: `資料來源：${opportunitySourceLabel(opportunity)}`,
       fetchedAtLabel: formatFetchedAt(opportunity.fetchedAt),
@@ -451,8 +479,14 @@ const marketGroups = computed(() => {
           : group.sourceKinds.has('ONCHAIN')
             ? '鏈上資料'
             : '第三方資料'
-        : '混合資料'
+        : '混合資料',
+      highestRate: Math.max(...group.rows.map(row => row.rate))
     }))
+    .sort((left, right) => {
+      if (marketSort.value === 'rate') return right.highestRate - left.highestRate
+      if (marketSort.value === 'protocol') return left.protocol.localeCompare(right.protocol)
+      return right.totalTvlUsd - left.totalTvlUsd
+    })
 })
 
 const fallbackProtocolNames = computed(() => marketGroups.value
@@ -471,10 +505,10 @@ const marketRankingLabel = computed(() => {
     return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場，依 TVL 合計排序`
   }
 
-  if (ranking.totalEligibleProducts <= ranking.limit) {
-    return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · 目前顯示 ${ranking.totalEligibleProducts} 個收益產品`
-  }
-  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 前 ${ranking.limit} 個收益產品（共 ${ranking.totalEligibleProducts} 個）`
+  const count = marketGroups.value.reduce((total, group) => total + group.rows.length, 0)
+  if (marketSort.value === 'rate') return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · ${marketRateType.value} 由高至低（${count} 個產品）`
+  if (marketSort.value === 'protocol') return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · 協議名稱排序（${count} 個產品）`
+  return `DeFi OS 已支援的 ${marketScopeLabel.value} 市場 · TVL 由高至低（${count} 個產品）`
 })
 
 const marketSearchResultLabel = computed(() => marketSearch.value
@@ -817,6 +851,23 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             <button v-if="marketSearchDraft || marketSearch" type="button" class="search-clear" @click="clearMarketSearch">清除</button>
             <button type="submit">搜尋</button>
           </form>
+          <div class="market-sort-controls">
+            <label class="market-sort">
+              <span>排序</span>
+              <select v-model="marketSort" aria-label="市場排序方式" @change="applyMarketSort">
+                <option value="tvl">TVL 最高</option>
+                <option value="rate">收益率最高</option>
+                <option value="protocol">協議名稱</option>
+              </select>
+            </label>
+            <label v-if="marketSort === 'rate'" class="market-sort rate-type">
+              <span>口徑</span>
+              <select v-model="marketRateType" aria-label="收益率口徑" @change="applyMarketSort">
+                <option value="APY">APY</option>
+                <option value="APR">APR</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <p v-if="marketSearchResultLabel" class="market-result-count">{{ marketSearchResultLabel }}</p>
@@ -1431,12 +1482,16 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .market-search button { padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 0; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; }
 .market-search button:last-child { border-radius: 0 10px 10px 0; }
 .market-search .search-clear { border-right: 0; color: var(--color-text-muted); }
+.market-sort-controls { display: flex; gap: 8px; align-items: center; }
+.market-sort { display: flex; gap: 7px; align-items: center; white-space: nowrap; font-size: .8125rem; color: var(--color-text-muted); }
+.market-sort select { padding: 9px 30px 9px 10px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; font: inherit; }
 .market-result-count, .market-updating { margin: 10px 0 0; font-size: .8125rem; color: var(--color-text-muted); }
 .market-updating { color: var(--color-text-secondary); }
 
 @media (max-width: 760px) {
   .market-tools { align-items: stretch; flex-direction: column; }
   .market-search { min-width: 100%; }
+  .market-sort-controls { flex-wrap: wrap; }
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
