@@ -2,9 +2,12 @@ import { ProviderError } from '../../../providers/errors'
 import { MarketProvidersUnavailableError } from '../../../services/usdcMarketService'
 import { getUsdcMarketDashboard } from '../../../services/usdcMarketDashboardService'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   try {
-    return await getUsdcMarketDashboard()
+    const query = getQuery(event)
+    return await getUsdcMarketDashboard({
+      forceRefresh: query.refresh === '1'
+    })
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Unknown provider failure'
     console.error('[api/market/usdc/dashboard] upstream failure', {

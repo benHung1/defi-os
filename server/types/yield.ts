@@ -102,6 +102,12 @@ export interface YieldResponseMeta {
    * Per-opportunity provenance remains on each YieldOpportunity.source.
    */
   providers: ProviderFetchMeta[]
+  /** Whether this response reused the latest successful server snapshot. */
+  servedFromCache?: boolean
+  /** Remaining manual-refresh cooldown when a refresh request reused cache. */
+  refreshCooldownSeconds?: number
+  /** A fresh upstream attempt failed, so the last successful snapshot is shown. */
+  cacheFallback?: boolean
 }
 
 export interface UsdcMarketResponse {

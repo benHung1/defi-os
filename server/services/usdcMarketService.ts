@@ -6,7 +6,10 @@ import type {
   UsdcMarketResponse,
   YieldOpportunity
 } from '../types/yield'
-import { resolveAggregateFreshnessStatus } from '../types/yield'
+import {
+  resolveAggregateFreshnessStatus,
+  resolveFreshnessStatus
+} from '../types/yield'
 import { selectDefiLlamaUsdcOpportunities } from './market-selectors/defillamaUsdcSelectors'
 import { selectMorphoUsdcOpportunities } from './market-selectors/morphoUsdcSelector'
 
@@ -16,6 +19,13 @@ export class MarketProvidersUnavailableError extends Error {
     this.name = 'MarketProvidersUnavailableError'
   }
 }
+
+const MARKET_CACHE_TTL_MS = 10 * 60 * 1000
+const MANUAL_REFRESH_COOLDOWN_MS = 30 * 1000
+
+let cachedMarket: UsdcMarketResponse | null = null
+let marketFetchPromise: Promise<UsdcMarketResponse> | null = null
+let lastFetchStartedAt = 0
 
 type ProviderOutcome =
   | {
@@ -121,7 +131,7 @@ function toProviderFetchMeta (outcome: ProviderOutcome): ProviderFetchMeta {
  * neutral Market ordering (tvlUsd desc + identity tie-breakers).
  * No Top-20 cap — Market Universe and Dashboard Top 20 are separate concepts.
  */
-export async function getUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
+async function fetchUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
   const [defiLlama, morpho] = await Promise.all([
     fetchDefiLlamaOutcome(),
     fetchMorphoOutcome()
@@ -151,5 +161,76 @@ export async function getUsdcMarketOpportunities (): Promise<UsdcMarketResponse>
       status: aggregate.status,
       providers: outcomes.map(toProviderFetchMeta)
     }
+  }
+}
+
+function cacheAgeMs (market: UsdcMarketResponse, now: number): number {
+  const fetchedMs = Date.parse(market.meta.fetchedAt)
+  return Number.isNaN(fetchedMs) ? Number.POSITIVE_INFINITY : now - fetchedMs
+}
+
+function presentMarket (
+  market: UsdcMarketResponse,
+  servedFromCache: boolean,
+  refreshCooldownSeconds?: number,
+  cacheFallback = false
+): UsdcMarketResponse {
+  return {
+    data: market.data,
+    meta: {
+      ...market.meta,
+      status: resolveFreshnessStatus(market.meta.fetchedAt),
+      servedFromCache,
+      cacheFallback,
+      ...(refreshCooldownSeconds === undefined ? {} : { refreshCooldownSeconds })
+    }
+  }
+}
+
+export interface UsdcMarketRequestOptions {
+  forceRefresh?: boolean
+}
+
+/**
+ * Shared Market snapshot for Dashboard and Decision consumers.
+ * Normal reads reuse a 10-minute snapshot. Manual refreshes bypass the TTL,
+ * with a short server-side cooldown to protect large upstream requests.
+ */
+export async function getUsdcMarketOpportunities (
+  options: UsdcMarketRequestOptions = {}
+): Promise<UsdcMarketResponse> {
+  const now = Date.now()
+
+  if (options.forceRefresh && cachedMarket) {
+    const cooldownRemaining = MANUAL_REFRESH_COOLDOWN_MS - (now - lastFetchStartedAt)
+    if (cooldownRemaining > 0) {
+      return presentMarket(cachedMarket, true, Math.ceil(cooldownRemaining / 1000))
+    }
+  }
+
+  if (!options.forceRefresh && cachedMarket && cacheAgeMs(cachedMarket, now) < MARKET_CACHE_TTL_MS) {
+    return presentMarket(cachedMarket, true)
+  }
+
+  if (!marketFetchPromise) {
+    lastFetchStartedAt = now
+    marketFetchPromise = fetchUsdcMarketOpportunities()
+      .then((market) => {
+        cachedMarket = market
+        return market
+      })
+      .finally(() => {
+        marketFetchPromise = null
+      })
+  }
+
+  try {
+    const market = await marketFetchPromise
+    return presentMarket(market, false)
+  } catch (error) {
+    if (cachedMarket) {
+      return presentMarket(cachedMarket, true, undefined, true)
+    }
+    throw error
   }
 }

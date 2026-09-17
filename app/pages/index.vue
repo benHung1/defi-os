@@ -55,6 +55,9 @@ interface YieldResponseMeta {
   fetchedAt: string
   status: FreshnessStatus
   providers: ProviderFetchMeta[]
+  servedFromCache?: boolean
+  refreshCooldownSeconds?: number
+  cacheFallback?: boolean
 }
 
 interface UsdcMarketDashboardResponse {
@@ -99,6 +102,7 @@ const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
 
 /** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
 const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
+const MARKET_INITIAL_DISPLAY_LIMIT = 5
 
 const dashboard: Dashboard = {
   greeting: '早安',
@@ -199,6 +203,46 @@ const {
   error: marketError
 } = await useFetch<UsdcMarketDashboardResponse>('/api/market/usdc/dashboard')
 
+const showAllMarketItems = ref(false)
+const marketRefreshing = ref(false)
+const marketRefreshMessage = ref<string | null>(null)
+
+const visibleMarketOpportunities = computed(() => {
+  const opportunities = marketDashboard.value?.data ?? []
+  return showAllMarketItems.value
+    ? opportunities
+    : opportunities.slice(0, MARKET_INITIAL_DISPLAY_LIMIT)
+})
+
+const hasMoreMarketItems = computed(() => {
+  return (marketDashboard.value?.data.length ?? 0) > MARKET_INITIAL_DISPLAY_LIMIT
+})
+
+async function refreshMarket (): Promise<void> {
+  marketRefreshing.value = true
+  marketRefreshMessage.value = null
+
+  try {
+    const refreshed = await $fetch<UsdcMarketDashboardResponse>(
+      '/api/market/usdc/dashboard?refresh=1'
+    )
+    marketDashboard.value = refreshed
+
+    const cooldown = refreshed.meta.refreshCooldownSeconds
+    if (refreshed.meta.cacheFallback) {
+      marketRefreshMessage.value = '上游暫時無法更新，正在顯示最近一次成功資料。'
+    } else if (cooldown) {
+      marketRefreshMessage.value = `剛剛已更新，${cooldown} 秒後可再次取得上游資料。`
+    } else {
+      marketRefreshMessage.value = '已取得目前可用的最新資料。'
+    }
+  } catch {
+    marketRefreshMessage.value = '更新失敗，畫面保留最近一次成功資料。'
+  } finally {
+    marketRefreshing.value = false
+  }
+}
+
 const {
   data: decisionPayload,
   pending: decisionPending,
@@ -224,7 +268,7 @@ const marketGroups = computed(() => {
     }>
   }>()
 
-  for (const opportunity of payload.data) {
+  for (const opportunity of visibleMarketOpportunities.value) {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
       rows: []
@@ -546,10 +590,24 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
       </section>
 
       <section class="section">
-        <div class="section-head">
-          <h2>DeFi 市場</h2>
-          <p>目前先看 USDC</p>
+        <div class="section-head market-section-head">
+          <div>
+            <h2>DeFi 市場</h2>
+            <p>Ethereum · USDC</p>
+          </div>
+          <button
+            type="button"
+            class="market-refresh"
+            :disabled="marketRefreshing"
+            @click="refreshMarket"
+          >
+            {{ marketRefreshing ? '更新中…' : '重新整理' }}
+          </button>
         </div>
+
+        <p class="market-scope">
+          依產品 TVL 由高至低，預設顯示前 {{ MARKET_INITIAL_DISPLAY_LIMIT }} 名
+        </p>
 
         <p
           v-if="marketPending"
@@ -573,6 +631,13 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             部分市場資料來源暫時無法更新。
           </p>
 
+          <p
+            v-if="marketDashboard?.meta.cacheFallback"
+            class="market-notice"
+          >
+            上游暫時無法更新，目前顯示最近一次成功資料。
+          </p>
+
           <div class="market-list">
             <MarketProtocolGroup
               v-for="group in marketGroups"
@@ -581,6 +646,25 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
               :rows="group.rows"
             />
           </div>
+
+          <button
+            v-if="hasMoreMarketItems"
+            type="button"
+            class="market-more"
+            @click="showAllMarketItems = !showAllMarketItems"
+          >
+            {{ showAllMarketItems
+              ? `收合至前 ${MARKET_INITIAL_DISPLAY_LIMIT} 名`
+              : `顯示全部 ${marketDashboard?.data.length ?? 0} 個支援產品` }}
+          </button>
+
+          <p
+            v-if="marketRefreshMessage"
+            class="market-refresh-message"
+            aria-live="polite"
+          >
+            {{ marketRefreshMessage }}
+          </p>
 
           <p
             v-if="marketFetchedAtLabel"
@@ -805,6 +889,59 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   color: var(--color-text-muted);
 }
 
+.market-section-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.market-refresh,
+.market-more {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.market-refresh {
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.market-refresh:hover:not(:disabled),
+.market-more:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+
+.market-refresh:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.market-scope {
+  margin: 14px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.market-more {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px 16px;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.market-refresh-message {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-body);
+}
+
 .market-list {
   margin: 16px 0 0;
   padding: 0;
@@ -934,6 +1071,10 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 }
 
 @media (max-width: 480px) {
+  .market-section-head {
+    align-items: flex-start;
+  }
+
   .grid-4 {
     grid-template-columns: 1fr;
   }

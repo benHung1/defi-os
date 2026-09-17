@@ -118,8 +118,10 @@ export function selectUsdcMarketDashboardOpportunities (
  * Presentation / selection layer over the complete Market Universe.
  * Does not fetch providers, alter DataQuality, or produce recommendations.
  */
-export async function getUsdcMarketDashboard (): Promise<UsdcMarketDashboardResponse> {
-  const market = await getUsdcMarketOpportunities()
+export async function getUsdcMarketDashboard (
+  options: { forceRefresh?: boolean } = {}
+): Promise<UsdcMarketDashboardResponse> {
+  const market = await getUsdcMarketOpportunities(options)
 
   return {
     data: selectUsdcMarketDashboardOpportunities(market.data),
