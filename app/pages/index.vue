@@ -25,6 +25,7 @@ interface Dashboard {
 
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
+type DataSourceKind = 'OFFICIAL_API' | 'THIRD_PARTY_AGGREGATOR'
 type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 type ProviderFetchStatus = 'ok' | 'error'
 
@@ -45,6 +46,7 @@ interface YieldOpportunity {
   rateType: RateType
   tvlUsd: number | null
   source: string
+  sourceKind: DataSourceKind
   productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
@@ -72,6 +74,7 @@ interface ExcludedMarketObservation {
   referenceRate: number
   rateType: RateType
   source: string
+  sourceKind: DataSourceKind
   productUrl?: string
   sourcePoolId?: string
 }
@@ -301,6 +304,7 @@ const marketGroups = computed(() => {
   const groups = new Map<string, {
     protocol: string
     totalTvlUsd: number
+    sourceKinds: Set<DataSourceKind>
     rows: Array<{
       key: string
       product: string
@@ -316,9 +320,11 @@ const marketGroups = computed(() => {
     const group = groups.get(opportunity.protocol) ?? {
       protocol: opportunity.protocol,
       totalTvlUsd: 0,
+      sourceKinds: new Set<DataSourceKind>(),
       rows: []
     }
     group.totalTvlUsd += opportunity.tvlUsd ?? 0
+    group.sourceKinds.add(opportunity.sourceKind)
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
       product: opportunity.product,
@@ -335,7 +341,10 @@ const marketGroups = computed(() => {
     .sort((left, right) => right.totalTvlUsd - left.totalTvlUsd)
     .map(group => ({
       ...group,
-      tvlLabel: formatCompactUsd(group.totalTvlUsd)
+      tvlLabel: formatCompactUsd(group.totalTvlUsd),
+      sourceLabel: group.sourceKinds.size === 1 && group.sourceKinds.has('OFFICIAL_API')
+        ? '官方資料'
+        : '第三方資料'
     }))
 })
 
@@ -719,6 +728,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
               :protocol="group.protocol"
               :rows="group.rows"
               :tvl-label="group.tvlLabel"
+              :source-label="group.sourceLabel"
             />
           </div>
 

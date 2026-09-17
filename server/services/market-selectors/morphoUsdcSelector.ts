@@ -84,6 +84,7 @@ export function selectMorphoUsdcOpportunities (
       rateType: 'APY',
       tvlUsd: vault.totalAssetsUsd,
       source: SOURCE_NAME,
+      sourceKind: 'OFFICIAL_API',
       productUrl: morphoVaultUrl(vault.address),
       sourceUrl: SOURCE_URL,
       sourcePoolId: vault.address,

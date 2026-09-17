@@ -1,3 +1,4 @@
+import { fetchAaveEthereumUsdcMarket } from '../providers/aave/markets'
 import { fetchDefiLlamaYieldPools } from '../providers/defillama/yields'
 import { fetchMorphoEthereumUsdcVaults } from '../providers/morpho/vaults'
 import { ProviderError } from '../providers/errors'
@@ -137,12 +138,13 @@ function toProviderFetchMeta (outcome: ProviderOutcome): ProviderFetchMeta {
  * No Top-20 cap — Market Universe and Dashboard Top 20 are separate concepts.
  */
 async function fetchUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
-  const [defiLlama, morpho] = await Promise.all([
+  const [aave, defiLlama, morpho] = await Promise.all([
+    fetchAaveOutcome(),
     fetchDefiLlamaOutcome(),
     fetchMorphoOutcome()
   ])
 
-  const outcomes = [defiLlama, morpho]
+  const outcomes = [aave, defiLlama, morpho]
   const successful = outcomes.filter(
     (outcome): outcome is Extract<ProviderOutcome, { status: 'ok' }> => outcome.status === 'ok'
   )
@@ -167,6 +169,39 @@ async function fetchUsdcMarketOpportunities (): Promise<UsdcMarketResponse> {
       status: aggregate.status,
       providers: outcomes.map(toProviderFetchMeta)
     }
+  }
+}
+
+async function fetchAaveOutcome (): Promise<ProviderOutcome> {
+  try {
+    const { market, fetchedAt } = await fetchAaveEthereumUsdcMarket()
+    return {
+      name: 'Aave',
+      status: 'ok',
+      fetchedAt,
+      opportunities: [{
+        protocol: 'Aave',
+        product: 'Aave V3 Ethereum Core USDC',
+        opportunityType: 'LENDING_SUPPLY',
+        asset: 'USDC',
+        chain: 'Ethereum',
+        rate: market.apy,
+        rateType: 'APY',
+        tvlUsd: market.tvlUsd,
+        source: 'Aave',
+        sourceKind: 'OFFICIAL_API',
+        productUrl: 'https://app.aave.com/',
+        sourceUrl: 'https://api.v3.aave.com/graphql',
+        sourcePoolId: market.marketAddress,
+        dataQuality: 'VERIFIED',
+        fetchedAt
+      }],
+      excluded: []
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown Aave failure'
+    console.error('[usdcMarketService] Aave provider failed', { detail })
+    return { name: 'Aave', status: 'error', detail }
   }
 }
 

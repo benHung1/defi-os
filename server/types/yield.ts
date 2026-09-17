@@ -1,4 +1,5 @@
 export type RateType = 'APR' | 'APY'
+export type DataSourceKind = 'OFFICIAL_API' | 'THIRD_PARTY_AGGREGATOR'
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 
@@ -60,6 +61,7 @@ export interface YieldOpportunity {
   rateType: RateType
   tvlUsd: number | null
   source: string
+  sourceKind: DataSourceKind
   /** User-facing official product page. Kept separate from provider provenance. */
   productUrl?: string
   sourceUrl?: string
@@ -123,6 +125,7 @@ export interface ExcludedMarketObservation {
   referenceRate: number
   rateType: RateType
   source: string
+  sourceKind: DataSourceKind
   productUrl?: string
   sourcePoolId?: string
 }

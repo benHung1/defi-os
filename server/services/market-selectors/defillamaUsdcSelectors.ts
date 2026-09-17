@@ -195,6 +195,7 @@ function selectMarketObservation (
         referenceRate: pool.apyMean30d,
         rateType: 'APY',
         source: SOURCE_NAME,
+        sourceKind: 'THIRD_PARTY_AGGREGATOR',
         productUrl,
         sourcePoolId: pool.pool
       }
@@ -212,6 +213,7 @@ function selectMarketObservation (
       rateType: 'APY',
       tvlUsd: pool.tvlUsd,
       source: SOURCE_NAME,
+      sourceKind: 'THIRD_PARTY_AGGREGATOR',
       productUrl,
       sourceUrl: SOURCE_URL,
       sourcePoolId: pool.pool,
@@ -259,16 +261,6 @@ export function selectDefiLlamaUsdcOpportunities (
   fetchedAt: string
 ): DefiLlamaUsdcSelection {
   const selection: DefiLlamaUsdcSelection = { opportunities: [], excluded: [] }
-
-  pushIfVerified(
-    selection,
-    selectAavePool(pools),
-    'Aave',
-    'Aave V3 Ethereum USDC',
-    'LENDING_SUPPLY',
-    'https://app.aave.com/',
-    fetchedAt
-  )
 
   pushIfVerified(
     selection,

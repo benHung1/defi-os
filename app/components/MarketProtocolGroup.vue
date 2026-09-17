@@ -13,6 +13,7 @@ defineProps<{
   protocol: string
   rows: MarketRow[]
   tvlLabel: string
+  sourceLabel: string
 }>()
 </script>
 
@@ -21,6 +22,7 @@ defineProps<{
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
+        <span class="source">{{ sourceLabel }}</span>
         <span class="tvl">支援產品 TVL {{ tvlLabel }}</span>
         <span class="count">{{ rows.length }} 個產品</span>
       </span>
@@ -89,6 +91,14 @@ defineProps<{
 .tvl {
   font-size: 0.8125rem;
   color: var(--color-text-body);
+}
+
+.source {
+  padding: 3px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
 .chevron {
