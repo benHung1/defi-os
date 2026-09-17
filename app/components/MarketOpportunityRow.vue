@@ -98,6 +98,7 @@ defineProps<{
 
 .metrics {
   flex-shrink: 0;
+  min-width: 132px;
   text-align: right;
 }
 
@@ -107,6 +108,7 @@ defineProps<{
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .rate span {
@@ -120,6 +122,7 @@ defineProps<{
   margin: 6px 0 0;
   font-size: 0.8125rem;
   color: var(--color-text-body);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 480px) {

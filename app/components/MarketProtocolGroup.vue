@@ -18,6 +18,7 @@ const props = defineProps<{
   rows: MarketRow[]
   tvlLabel: string
   sourceLabel: string
+  sourceTone: 'official' | 'onchain' | 'third-party' | 'mixed'
   sourceHelp: string
 }>()
 
@@ -34,7 +35,7 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
-        <span class="source" :title="sourceHelp">{{ sourceLabel }}</span>
+        <span class="source" :class="`source-${sourceTone}`" :title="sourceHelp">{{ sourceLabel }}</span>
         <span class="tvl">所列 TVL {{ tvlLabel }}</span>
         <span class="count">{{ rows.length }} 個產品</span>
       </span>
@@ -98,7 +99,7 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
 
 .count {
   font-size: 0.8125rem;
-  color: var(--color-text-muted);
+  color: color-mix(in srgb, var(--color-text-muted) 78%, transparent);
 }
 
 .summary-meta {
@@ -109,15 +110,49 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
 
 .tvl {
   font-size: 0.8125rem;
-  color: var(--color-text-body);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .source {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
   padding: 3px 7px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+.source::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.source-official {
+  border-color: color-mix(in srgb, #168f87 38%, var(--color-border));
+  background: color-mix(in srgb, #168f87 10%, var(--color-surface));
+  color: #168f87;
+}
+
+.source-onchain {
+  border-color: color-mix(in srgb, #7167d9 38%, var(--color-border));
+  background: color-mix(in srgb, #7167d9 10%, var(--color-surface));
+  color: #7167d9;
+}
+
+.source-third-party {
+  border-color: color-mix(in srgb, #b7791f 42%, var(--color-border));
+  background: color-mix(in srgb, #b7791f 9%, var(--color-surface));
+  color: #a56813;
+}
+
+.source-mixed {
+  background: var(--color-surface-soft);
 }
 
 .chevron {

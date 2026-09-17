@@ -496,6 +496,13 @@ const marketGroups = computed(() => {
             ? '鏈上資料'
             : '第三方資料'
         : '混合資料',
+      sourceTone: group.sourceKinds.size > 1
+        ? 'mixed' as const
+        : group.sourceKinds.has('OFFICIAL_API')
+          ? 'official' as const
+          : group.sourceKinds.has('ONCHAIN')
+            ? 'onchain' as const
+            : 'third-party' as const,
       highestRate: Math.max(...group.rows.map(row => row.rate))
     }))
     .sort((left, right) => {
@@ -963,6 +970,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
               :rows="group.rows"
               :tvl-label="group.tvlLabel"
               :source-label="group.sourceLabel"
+              :source-tone="group.sourceTone"
               :source-help="group.sourceHelp"
             />
           </div>
