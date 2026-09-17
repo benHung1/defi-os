@@ -146,7 +146,7 @@ export interface UsdcMarketDashboardResponse {
   excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta & {
     ranking: {
-      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
+      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS' | 'SUPPORTED_MARKET_PROTOCOLS'
       sort: MarketDashboardSort
       limit: number
       protocolCount: number

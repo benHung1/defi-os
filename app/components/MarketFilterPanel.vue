@@ -2,6 +2,12 @@
 const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 
+type MarketChain = 'ethereum' | 'base' | 'arbitrum'
+type MarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
+
+const props = defineProps<{ chain: MarketChain, asset: MarketAsset }>()
+const emit = defineEmits<{ change: [scope: { chain: MarketChain, asset: MarketAsset }] }>()
+
 function close (): void { open.value = false }
 function onDocumentPointerDown (event: PointerEvent): void {
   if (open.value && root.value && !root.value.contains(event.target as Node)) close()
@@ -19,24 +25,50 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onDocumentKeyDown)
 })
 
-const chains = [
-  { label: 'Ethereum', symbol: 'Ξ', selected: true, available: true, tone: 'ethereum' },
-  { label: 'Arbitrum', symbol: 'A', selected: false, available: false, tone: 'arbitrum' },
-  { label: 'Base', symbol: 'B', selected: false, available: false, tone: 'base' }
+interface ChainOption { value: MarketChain, label: string, symbol: string, tone: string }
+const chainOptions: ChainOption[] = [
+  { value: 'ethereum', label: 'Ethereum', symbol: 'Ξ', tone: 'ethereum' },
+  { value: 'arbitrum', label: 'Arbitrum', symbol: 'A', tone: 'arbitrum' },
+  { value: 'base', label: 'Base', symbol: 'B', tone: 'base' }
+]
+const chainGroups: Array<{ label: string, items: ChainOption[] }> = [
+  { label: 'L1 Networks', items: [
+    chainOptions[0]!
+  ] },
+  { label: 'L2 Networks', items: [
+    chainOptions[1]!, chainOptions[2]!
+  ] }
 ]
 const assets = [
-  { label: 'USDC', symbol: '$', selected: true, available: true, tone: 'usdc' },
-  { label: 'USDT', symbol: '₮', selected: false, available: false, tone: 'usdt' },
-  { label: 'DAI', symbol: 'D', selected: false, available: false, tone: 'dai' },
-  { label: 'USDS', symbol: 'S', selected: false, available: false, tone: 'usds' }
+  { value: 'USDC' as const, label: 'USDC', symbol: '$', tone: 'usdc' },
+  { value: 'USDT' as const, label: 'USDT', symbol: '₮', tone: 'usdt' },
+  { value: 'ETH' as const, label: 'ETH', symbol: 'Ξ', tone: 'ethereum' },
+  { value: 'BTC' as const, label: 'BTC', symbol: '₿', tone: 'btc' }
 ]
+
+const availableAssets: Record<MarketChain, MarketAsset[]> = {
+  ethereum: ['USDC', 'USDT', 'ETH', 'BTC'],
+  base: ['USDC', 'ETH', 'BTC'],
+  arbitrum: ['USDC', 'USDT', 'ETH', 'BTC']
+}
+
+const chainLabel = computed(() => chainOptions.find(item => item.value === props.chain)?.label ?? props.chain)
+
+function selectChain (chain: MarketChain): void {
+  const asset = availableAssets[chain].includes(props.asset) ? props.asset : 'USDC'
+  emit('change', { chain, asset })
+}
+
+function selectAsset (asset: MarketAsset): void {
+  if (availableAssets[props.chain].includes(asset)) emit('change', { chain: props.chain, asset })
+}
 </script>
 
 <template>
   <div ref="root" class="filter-picker">
     <button type="button" class="trigger" :aria-expanded="open" aria-haspopup="dialog" @click="open = !open">
       <span class="scope-icon">Ξ</span>
-      <span><strong>Ethereum · USDC</strong><small>選擇鏈與穩定幣</small></span>
+      <span><strong>{{ chainLabel }} · {{ asset }}</strong><small>選擇鏈與資產</small></span>
       <span class="summary-chevron" :class="{ open }" aria-hidden="true" />
     </button>
 
@@ -46,24 +78,24 @@ const assets = [
         <button type="button" class="close" aria-label="關閉市場篩選" @click="close">×</button>
       </div>
 
-      <section>
-        <p>選擇鏈</p>
+      <section v-for="group in chainGroups" :key="group.label">
+        <p>{{ group.label }}</p>
         <div class="option-grid">
-          <button v-for="item in chains" :key="item.label" type="button" class="option" :class="{ selected: item.selected }" :disabled="!item.available">
+          <button v-for="item in group.items" :key="item.value" type="button" class="option" :class="{ selected: chain === item.value }" @click="selectChain(item.value)">
             <i :class="item.tone">{{ item.symbol }}</i>
-            <span><strong>{{ item.label }}</strong><small v-if="!item.available">即將支援</small></span>
-            <b v-if="item.selected" aria-label="已選擇">✓</b>
+            <span><strong>{{ item.label }}</strong></span>
+            <b v-if="chain === item.value" aria-label="已選擇">✓</b>
           </button>
         </div>
       </section>
 
       <section>
-        <p>選擇穩定幣</p>
+        <p>Assets</p>
         <div class="option-grid">
-          <button v-for="item in assets" :key="item.label" type="button" class="option" :class="{ selected: item.selected }" :disabled="!item.available">
+          <button v-for="item in assets" :key="item.value" type="button" class="option" :class="{ selected: asset === item.value }" :disabled="!availableAssets[chain].includes(item.value)" @click="selectAsset(item.value)">
             <i :class="item.tone">{{ item.symbol }}</i>
-            <span><strong>{{ item.label }}</strong><small v-if="!item.available">即將支援</small></span>
-            <b v-if="item.selected" aria-label="已選擇">✓</b>
+            <span><strong>{{ item.label }}</strong><small v-if="!availableAssets[chain].includes(item.value)">此鏈未支援</small></span>
+            <b v-if="asset === item.value" aria-label="已選擇">✓</b>
           </button>
         </div>
       </section>
@@ -94,6 +126,6 @@ section > p { margin: 0 0 9px; font-size: .75rem; color: var(--color-text-muted)
 .option i { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: var(--coin); color: white; font-style: normal; font-size: .75rem; }
 .option span { min-width: 0; }
 .option b { color: #627eea; }
-.ethereum { --coin: #627eea; } .arbitrum { --coin: #2d8bd3; } .base { --coin: #1769ff; } .usdc { --coin: #2775ca; } .usdt { --coin: #26a17b; } .dai { --coin: #f5ac37; } .usds { --coin: #7764e4; }
+.ethereum { --coin: #627eea; } .arbitrum { --coin: #2d8bd3; } .base { --coin: #1769ff; } .usdc { --coin: #2775ca; } .usdt { --coin: #26a17b; } .btc { --coin: #f7931a; }
 @media (max-width: 600px) { .panel { width: calc(100vw - 32px); } .option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

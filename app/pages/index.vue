@@ -27,6 +27,8 @@ type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
 type RateType = 'APR' | 'APY'
 type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
 type MarketSort = 'tvl' | 'rate'
+type MarketChain = 'ethereum' | 'base' | 'arbitrum'
+type MarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
 type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 type ProviderFetchStatus = 'ok' | 'error'
 
@@ -85,7 +87,7 @@ interface UsdcMarketDashboardResponse {
   excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta & {
     ranking: {
-      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS'
+      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS' | 'SUPPORTED_MARKET_PROTOCOLS'
       sort: MarketSort
       limit: number
       protocolCount: number
@@ -254,16 +256,36 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
+const route = useRoute()
+const router = useRouter()
+
+const marketChain = ref<MarketChain>(['ethereum', 'base', 'arbitrum'].includes(String(route.query.chain))
+  ? String(route.query.chain) as MarketChain
+  : 'ethereum')
+const marketAsset = ref<MarketAsset>(['USDC', 'USDT', 'ETH', 'BTC'].includes(String(route.query.asset).toUpperCase())
+  ? String(route.query.asset).toUpperCase() as MarketAsset
+  : 'USDC')
+if (marketChain.value === 'base' && marketAsset.value === 'USDT') marketAsset.value = 'USDC'
+const marketChainLabel = computed(() => ({ ethereum: 'Ethereum', base: 'Base', arbitrum: 'Arbitrum' })[marketChain.value])
 
 function marketDashboardUrl (limit: number, refresh = false): string {
   const params = new URLSearchParams({
     limit: String(limit),
     sort: 'tvl',
-    chain: 'ethereum',
-    asset: 'usdc'
+    chain: marketChain.value,
+    asset: marketAsset.value.toLowerCase()
   })
   if (refresh) params.set('refresh', '1')
-  return `/api/market/usdc/dashboard?${params.toString()}`
+  return `/api/market/dashboard?${params.toString()}`
+}
+
+async function applyMarketScope (scope: { chain: MarketChain, asset: MarketAsset }): Promise<void> {
+  marketChain.value = scope.chain
+  marketAsset.value = scope.asset
+  showAllMarketProtocols.value = false
+  marketRefreshMessage.value = null
+  await router.replace({ query: { ...route.query, chain: scope.chain, asset: scope.asset.toLowerCase() } })
+  marketDashboard.value = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
 }
 
 const {
@@ -405,10 +427,10 @@ const hasMoreMarketProtocols = computed(() => {
 const marketRankingLabel = computed(() => {
   const ranking = marketDashboard.value?.meta.ranking
   if (!ranking) {
-    return 'DeFi OS 已支援的 Ethereum USDC 協議，依 TVL 合計排序'
+    return `DeFi OS 已支援的 ${marketChainLabel.value} ${marketAsset.value} 協議，依 TVL 合計排序`
   }
 
-  return `DeFi OS 已支援的 Ethereum USDC 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
+  return `DeFi OS 已支援的 ${marketChainLabel.value} ${marketAsset.value} 協議 · TVL 前 ${ranking.limit}（目前符合 ${ranking.totalEligibleProtocols} 個）`
 })
 
 const hasPartialProviderFailure = computed(() => {
@@ -716,7 +738,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         <div class="section-head market-section-head">
           <div>
             <h2>DeFi 市場</h2>
-            <p>Ethereum · USDC</p>
+            <p>{{ marketChainLabel }} · {{ marketAsset }}</p>
           </div>
           <button
             type="button"
@@ -728,7 +750,11 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </button>
         </div>
 
-        <MarketFilterPanel />
+        <MarketFilterPanel
+          :chain="marketChain"
+          :asset="marketAsset"
+          @change="applyMarketScope"
+        />
 
         <p class="market-scope">
           {{ marketRankingLabel }}
