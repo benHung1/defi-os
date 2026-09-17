@@ -12,13 +12,20 @@ interface MarketRow {
   productUrl?: string
 }
 
-defineProps<{
+const props = defineProps<{
   protocol: string
   rows: MarketRow[]
   tvlLabel: string
   sourceLabel: string
   sourceHelp: string
 }>()
+
+const PRODUCT_PAGE_SIZE = 5
+const visibleCount = ref(PRODUCT_PAGE_SIZE)
+const visibleRows = computed(() => props.rows.slice(0, visibleCount.value))
+const hasMore = computed(() => visibleCount.value < props.rows.length)
+
+watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
 </script>
 
 <template>
@@ -35,7 +42,7 @@ defineProps<{
 
     <ul class="products">
       <MarketOpportunityRow
-        v-for="row in rows"
+        v-for="row in visibleRows"
         :key="row.key"
         :product="row.product"
         :type-label="row.typeLabel"
@@ -48,6 +55,9 @@ defineProps<{
         :product-url="row.productUrl"
       />
     </ul>
+    <button v-if="hasMore" type="button" class="products-more" @click="visibleCount += PRODUCT_PAGE_SIZE">
+      再顯示 {{ Math.min(PRODUCT_PAGE_SIZE, rows.length - visibleCount) }} 個產品
+    </button>
   </details>
 </template>
 
@@ -137,6 +147,19 @@ defineProps<{
   background: var(--color-surface-soft);
   list-style: none;
 }
+
+.products-more {
+  width: 100%;
+  padding: 13px 18px;
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-soft);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.products-more:hover { color: var(--color-text-primary); }
 
 @media (max-width: 480px) {
   .summary {

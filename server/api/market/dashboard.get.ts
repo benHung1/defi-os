@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
   const chains = chainQuery === 'all' ? [...CHAINS] : chainQuery.split(',').filter(Boolean)
   const assets = assetQuery === 'ALL' ? [...ASSETS] : assetQuery.split(',').filter(Boolean)
   const limit = query.limit === undefined ? 5 : Number(query.limit)
+  const keyword = String(query.q ?? '').trim()
 
   if (chains.length === 0 || assets.length === 0 || chains.some(chain => !isSupportedMarketChain(chain)) || assets.some(asset => !ASSETS.includes(asset as SupportedMarketAsset))) {
     throw createError({ statusCode: 400, message: 'Unsupported chain or asset.' })
@@ -19,10 +20,14 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(limit) || limit < 1 || limit > 20) {
     throw createError({ statusCode: 400, message: 'limit must be an integer from 1 to 20.' })
   }
+  if (keyword.length > 80) {
+    throw createError({ statusCode: 400, message: 'q must be at most 80 characters.' })
+  }
   try {
     return await getMultiScopedMarketDashboard([...new Set(chains)] as SupportedMarketChain[], [...new Set(assets)] as SupportedMarketAsset[], {
       forceRefresh: query.refresh === '1',
-      limit
+      limit,
+      query: keyword
     })
   } catch (error) {
     console.error('[api/market/dashboard] upstream failure', {

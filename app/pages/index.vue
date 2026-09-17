@@ -272,6 +272,8 @@ const initialChains = queryValues(chainQuery).filter(value => validChains.value.
 const initialAssets = queryValues(assetQuery).map(value => value.toUpperCase()).filter(value => validAssets.value.includes(value as MarketAsset)) as MarketAsset[]
 const marketChains = ref<MarketChain[]>(chainQuery === 'all' ? [] : [...new Set(initialChains)])
 const marketAssets = ref<MarketAsset[]>(assetQuery.toLowerCase() === 'all' ? [] : [...new Set(initialAssets)])
+const marketSearch = ref(String(route.query.q ?? '').slice(0, 80))
+const marketSearchDraft = ref(marketSearch.value)
 const chainLabel = (key: MarketChain): string => chainOptions.value.find(chain => chain.key === key)?.label ?? key
 const marketScopeLabel = computed(() => {
   if (marketChains.value.length === 0 && marketAssets.value.length === 0) return '全部鏈 · 全部資產'
@@ -290,6 +292,7 @@ function marketDashboardUrl (limit: number, refresh = false): string {
     chains: marketChains.value.length > 0 ? marketChains.value.join(',') : 'all',
     assets: marketAssets.value.length > 0 ? marketAssets.value.map(asset => asset.toLowerCase()).join(',') : 'all'
   })
+  if (marketSearch.value) params.set('q', marketSearch.value)
   if (refresh) params.set('refresh', '1')
   return `/api/market/dashboard?${params.toString()}`
 }
@@ -305,10 +308,24 @@ async function applyMarketScope (scope: { chains: MarketChain[], assets: MarketA
   await router.replace({ query: {
     ...query,
     chains: scope.chains.length > 0 ? scope.chains.join(',') : 'all',
-    assets: scope.assets.length > 0 ? scope.assets.map(asset => asset.toLowerCase()).join(',') : 'all'
+    assets: scope.assets.length > 0 ? scope.assets.map(asset => asset.toLowerCase()).join(',') : 'all',
+    q: marketSearch.value || undefined
   } })
   const response = await $fetch<UsdcMarketDashboardResponse>(marketDashboardUrl(MARKET_INITIAL_PROTOCOL_LIMIT))
   if (requestId === marketScopeRequestId) marketDashboard.value = response
+}
+
+async function applyMarketSearch (): Promise<void> {
+  marketSearch.value = marketSearchDraft.value.trim().slice(0, 80)
+  await applyMarketScope({ chains: marketChains.value, assets: marketAssets.value })
+}
+
+function applyAssetPreset (assets: MarketAsset[]): void {
+  void applyMarketScope({ chains: marketChains.value, assets })
+}
+
+function isAssetPresetActive (assets: MarketAsset[]): boolean {
+  return marketAssets.value.length === assets.length && assets.every(asset => marketAssets.value.includes(asset))
 }
 
 const {
@@ -780,6 +797,19 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           @change="applyMarketScope"
         />
 
+        <div class="market-tools">
+          <div class="market-presets" aria-label="快速資產篩選">
+            <button type="button" :class="{ active: isAssetPresetActive([]) }" @click="applyAssetPreset([])">全部</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['USDC', 'USDT']) }" @click="applyAssetPreset(['USDC', 'USDT'])">穩定幣</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['ETH']) }" @click="applyAssetPreset(['ETH'])">ETH</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['BTC']) }" @click="applyAssetPreset(['BTC'])">BTC</button>
+          </div>
+          <form class="market-search" role="search" @submit.prevent="applyMarketSearch">
+            <input v-model="marketSearchDraft" type="search" maxlength="80" placeholder="搜尋協議、產品、鏈或資產…" aria-label="搜尋市場產品">
+            <button type="submit">搜尋</button>
+          </form>
+        </div>
+
         <p class="market-scope">
           {{ marketRankingLabel }}
         </p>
@@ -792,14 +822,14 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           v-if="marketPending"
           class="market-status"
         >
-          正在取得 USDC 市場資料…
+          正在取得市場資料…
         </p>
 
         <p
           v-else-if="marketError"
           class="market-status market-status-error"
         >
-          目前無法取得 USDC 市場資料。
+          目前無法取得市場資料。
         </p>
 
         <template v-else>
@@ -1380,7 +1410,17 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
   color: var(--color-text-muted);
 }
 
+.market-tools { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 12px; }
+.market-presets { display: flex; flex-wrap: wrap; gap: 7px; }
+.market-presets button { padding: 7px 12px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; font: inherit; font-size: .8125rem; }
+.market-presets button.active { border-color: #627eea; background: color-mix(in srgb, #627eea 13%, transparent); color: var(--color-text-primary); }
+.market-search { display: flex; min-width: min(360px, 100%); }
+.market-search input { min-width: 0; flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-right: 0; border-radius: 10px 0 0 10px; background: var(--color-surface); color: var(--color-text-primary); font: inherit; }
+.market-search button { padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 0 10px 10px 0; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+
 @media (max-width: 760px) {
+  .market-tools { align-items: stretch; flex-direction: column; }
+  .market-search { min-width: 100%; }
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }

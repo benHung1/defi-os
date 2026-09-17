@@ -11,23 +11,26 @@ export function isSupportedCombination (chain: SupportedMarketChain, asset: Supp
 export async function getMultiScopedMarketDashboard (
   chains: SupportedMarketChain[],
   assets: SupportedMarketAsset[],
-  options: { forceRefresh?: boolean, limit?: number } = {}
+  options: { forceRefresh?: boolean, limit?: number, query?: string } = {}
 ): Promise<UsdcMarketDashboardResponse> {
   const combinations = chains.flatMap(chain => assets
     .filter(asset => isSupportedCombination(chain, asset))
     .map(asset => ({ chain, asset })))
   if (combinations.length === 0) throw new Error('No supported market combinations were selected.')
-  if (combinations.length === 1) {
-    const combination = combinations[0]!
-    return getScopedMarketDashboard(combination.chain, combination.asset, options)
-  }
-
   const results = await Promise.allSettled(combinations.map(({ chain, asset }) =>
     getScopedMarketDashboard(chain, asset, { ...options, limit: 20 })))
   const successful = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
   if (successful.length === 0) throw new Error('Every selected market provider request failed.')
 
-  const allData = successful.flatMap(result => result.data)
+  const query = options.query?.trim().toLocaleLowerCase()
+  const allData = successful.flatMap(result => result.data).filter(item => !query || [
+    item.protocol,
+    item.product,
+    item.chain,
+    item.asset,
+    item.source,
+    item.sourcePoolId
+  ].some(value => value?.toLocaleLowerCase().includes(query)))
   const protocolTvls = new Map<string, number>()
   for (const item of allData) protocolTvls.set(item.protocol, (protocolTvls.get(item.protocol) ?? 0) + (item.tvlUsd ?? 0))
   const limit = options.limit ?? 5
