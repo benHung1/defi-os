@@ -770,7 +770,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </template>
       </section>
 
-      <section class="section">
+      <section class="section wallet-gated-section">
         <div class="section-head portfolio-section-head">
           <div>
             <h2>投資組合</h2>
@@ -795,7 +795,7 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         </div>
       </section>
 
-      <section class="section">
+      <section class="section wallet-gated-section">
         <div class="section-head">
           <h2>你的 USDC</h2>
           <p>我的目前部位跟市場差多少？</p>
@@ -1332,17 +1332,20 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 }
 
 .wallet-empty-state {
+  box-sizing: border-box;
   display: flex;
   gap: 16px;
   align-items: center;
-  min-height: 118px;
-  padding: 24px;
+  min-height: 112px;
+  margin-top: 16px;
+  padding: 20px 24px;
   border: 1px dashed var(--color-border);
   border-radius: 16px;
   background: color-mix(in srgb, var(--color-surface) 72%, transparent);
 }
 
-.wallet-empty-state.compact { min-height: auto; }
+.wallet-gated-section + .wallet-gated-section { margin-top: -12px; }
+.wallet-empty-state.compact { min-height: 96px; }
 .wallet-empty-state strong { color: var(--color-text-primary); font-size: .9375rem; }
 .wallet-empty-state p { margin: 6px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }
 .wallet-empty-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid color-mix(in srgb, #168f87 48%, var(--color-border)); border-radius: 50%; color: #168f87; font-weight: 700; }
