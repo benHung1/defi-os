@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { PortfolioPosition } from '../../shared/types/portfolio'
+
 interface SummaryItem {
   label: string
   value: string
@@ -94,6 +96,22 @@ interface UsdcMarketDashboardResponse {
       totalEligibleProducts: number
     }
   }
+}
+
+interface UsdcDecisionCandidateResponse {
+  currentPosition: {
+    asset: 'USDC'
+    protocol: string
+    product: string
+    opportunityType: OpportunityType
+    chain: string
+    amount: number
+    rate?: number
+    rateType?: RateType
+  }
+  currentPositionRate: { rate: number, rateType: RateType } | null
+  candidates: YieldOpportunity[]
+  meta: YieldResponseMeta
 }
 
 const MARKET_ALL_PRODUCT_LIMIT = 100
@@ -565,6 +583,86 @@ const walletAssets = computed(() => walletPortfolio.value?.chains.flatMap(chain 
 const walletPositions = computed(() => walletPortfolio.value?.positions ?? [])
 const walletUsdc = computed(() => walletAssets.value.find(asset => asset.symbol === 'USDC')?.amount ?? 0)
 const usdcPositions = computed(() => walletPositions.value.filter(position => position.asset.toUpperCase() === 'USDC'))
+const comparableUsdcPositions = computed(() => usdcPositions.value.filter(position =>
+  (position.kind === 'SUPPLY' || position.kind === 'VAULT') && position.amount > 0
+))
+const usdcPositionKey = (position: PortfolioPosition): string =>
+  `${position.protocol}:${position.product}:${position.kind}:${position.chain}:${position.contractAddress}`
+const selectedUsdcPositionKey = ref('')
+const selectedUsdcPosition = computed(() => comparableUsdcPositions.value.find(position =>
+  usdcPositionKey(position) === selectedUsdcPositionKey.value
+) ?? comparableUsdcPositions.value[0] ?? null)
+const usdcDecision = ref<UsdcDecisionCandidateResponse | null>(null)
+const usdcDecisionPending = ref(false)
+const usdcDecisionError = ref<string | null>(null)
+let usdcDecisionRequestId = 0
+
+function positionOpportunityType (position: PortfolioPosition): OpportunityType {
+  if (position.kind === 'SUPPLY') return 'LENDING_SUPPLY'
+  if (position.protocol === 'Spark' && position.product.toLocaleLowerCase().includes('savings')) return 'SAVINGS'
+  return 'CURATED_VAULT'
+}
+
+async function refreshUsdcDecision (): Promise<void> {
+  const position = selectedUsdcPosition.value
+  const requestId = ++usdcDecisionRequestId
+  usdcDecision.value = null
+  usdcDecisionError.value = null
+
+  if (!position || position.rate === null || position.rateType === null) {
+    usdcDecisionPending.value = false
+    return
+  }
+
+  usdcDecisionPending.value = true
+  try {
+    const response = await $fetch<UsdcDecisionCandidateResponse>('/api/decision/usdc', {
+      query: {
+        protocol: position.protocol,
+        product: position.product,
+        opportunityType: positionOpportunityType(position),
+        chain: position.chain,
+        amount: position.amount,
+        rate: position.rate,
+        rateType: position.rateType
+      }
+    })
+    if (requestId === usdcDecisionRequestId) usdcDecision.value = response
+  } catch {
+    if (requestId === usdcDecisionRequestId) usdcDecisionError.value = '目前無法取得同口徑市場比較，請稍後再試。'
+  } finally {
+    if (requestId === usdcDecisionRequestId) usdcDecisionPending.value = false
+  }
+}
+
+watch(comparableUsdcPositions, (positions) => {
+  if (!positions.some(position => usdcPositionKey(position) === selectedUsdcPositionKey.value)) {
+    selectedUsdcPositionKey.value = positions[0] ? usdcPositionKey(positions[0]) : ''
+  }
+}, { immediate: true })
+
+watch(selectedUsdcPosition, () => {
+  void refreshUsdcDecision()
+}, { immediate: true })
+
+const selectedUsdcAnnualYield = computed(() => {
+  const position = selectedUsdcPosition.value
+  if (!position || position.rate === null) return null
+  return (position.valueUsd ?? position.amount) * position.rate / 100
+})
+const formatAnnualUsd = (value: number): string => `US$${value.toLocaleString('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+})}`
+const candidateRateDifference = (candidate: YieldOpportunity): number => {
+  const currentRate = usdcDecision.value?.currentPositionRate?.rate
+  return currentRate === undefined ? 0 : candidate.rate - currentRate
+}
+const candidateAnnualDifference = (candidate: YieldOpportunity): number => {
+  const position = selectedUsdcPosition.value
+  if (!position) return 0
+  return (position.valueUsd ?? position.amount) * candidateRateDifference(candidate) / 100
+}
 const protocolNames = computed(() => [...new Set(walletPositions.value.map(position => position.protocol))])
 const positionKindLabel = (kind: string): string => ({
   SUPPLY: '供應', BORROW: '借款', COLLATERAL: '抵押', VAULT: 'Vault'
@@ -739,29 +837,114 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           </div>
         </div>
 
-        <div v-else-if="usdcPositions.length === 0" class="wallet-empty-state compact">
+        <div v-else-if="portfolioError" class="wallet-empty-state compact">
+          <div class="wallet-empty-icon" aria-hidden="true">!</div>
+          <div>
+            <strong>目前無法確認 USDC 部位</strong>
+            <p>{{ portfolioError }}</p>
+          </div>
+        </div>
+
+        <div v-else-if="comparableUsdcPositions.length === 0" class="wallet-empty-state compact">
           <div class="wallet-empty-icon" aria-hidden="true">$</div>
           <div>
             <strong>{{ walletUsdc > 0 ? `錢包持有 ${walletUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC` : '未找到 Ethereum USDC 餘額' }}</strong>
-            <p>已查詢 Aave、Spark、Compound 與 Morpho Blue；目前沒有可供比較的 USDC 協議部位。</p>
+            <p>目前沒有已辨識的 USDC 供應或 Vault 部位；錢包現貨不會被當成 DeFi 收益部位比較。</p>
           </div>
         </div>
-        <div v-else class="position-list usdc-position-list">
-          <article
-            v-for="position in usdcPositions"
-            :key="`usdc:${position.protocol}:${position.product}:${position.kind}`"
-            class="position-card"
-          >
-            <div>
-              <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
-              <strong>{{ position.product }}</strong>
-              <small>{{ position.isCollateral ? '目前作為抵押品' : '已完成鏈上部位核對' }}</small>
+
+        <div v-else-if="selectedUsdcPosition" class="usdc-comparison">
+          <div class="usdc-position-picker">
+            <label for="usdc-position-select">
+              <span>目前比較部位</span>
+              <small>{{ comparableUsdcPositions.length }} 個可比較部位</small>
+            </label>
+            <select id="usdc-position-select" v-model="selectedUsdcPositionKey">
+              <option
+                v-for="position in comparableUsdcPositions"
+                :key="usdcPositionKey(position)"
+                :value="usdcPositionKey(position)"
+              >
+                {{ position.protocol }} · {{ position.product }}
+              </option>
+            </select>
+          </div>
+
+          <article class="usdc-current-card">
+            <div class="usdc-current-identity">
+              <p>{{ selectedUsdcPosition.protocol }} · {{ positionKindLabel(selectedUsdcPosition.kind) }}</p>
+              <strong>{{ selectedUsdcPosition.product }}</strong>
+              <small>{{ selectedUsdcPosition.chain }} · 已完成鏈上部位核對</small>
             </div>
-            <div class="position-values">
-              <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
-              <span>{{ formatPositionRate(position.rate, position.rateType) }}</span>
-            </div>
+            <dl class="usdc-current-metrics">
+              <div>
+                <dt>目前金額</dt>
+                <dd>{{ formatPositionAmount(selectedUsdcPosition.amount, selectedUsdcPosition.asset) }}</dd>
+              </div>
+              <div>
+                <dt>目前利率</dt>
+                <dd>{{ formatPositionRate(selectedUsdcPosition.rate, selectedUsdcPosition.rateType) }}</dd>
+              </div>
+              <div>
+                <dt>估計年收益</dt>
+                <dd>{{ selectedUsdcAnnualYield === null ? '—' : formatAnnualUsd(selectedUsdcAnnualYield) }}</dd>
+              </div>
+            </dl>
           </article>
+
+          <div class="usdc-candidate-head">
+            <div>
+              <h3>同口徑市場候選</h3>
+              <p>{{ selectedUsdcPosition.chain }} · USDC · {{ selectedUsdcPosition.rateType ?? '利率口徑未知' }}</p>
+            </div>
+            <span>最多 3 個</span>
+          </div>
+
+          <div v-if="selectedUsdcPosition.rate === null || selectedUsdcPosition.rateType === null" class="usdc-comparison-state">
+            此部位目前沒有可核對的利率，因此不產生跨產品比較。
+          </div>
+          <div v-else-if="usdcDecisionPending" class="usdc-comparison-state">
+            正在整理相同鏈、資產與利率口徑的候選…
+          </div>
+          <div v-else-if="usdcDecisionError" class="usdc-comparison-state usdc-comparison-error">
+            {{ usdcDecisionError }}
+            <button type="button" @click="refreshUsdcDecision">重新嘗試</button>
+          </div>
+          <div v-else-if="!usdcDecision?.candidates.length" class="usdc-comparison-state">
+            目前沒有找到利率高於此部位、且符合相同比較口徑的已驗證產品。
+          </div>
+          <div v-else class="usdc-candidate-list">
+            <article
+              v-for="candidate in usdcDecision.candidates"
+              :key="`${candidate.protocol}:${candidate.product}:${candidate.sourcePoolId ?? ''}`"
+              class="usdc-candidate-row"
+            >
+              <div>
+                <p>{{ candidate.protocol }} · {{ opportunityTypeLabel(candidate.opportunityType) }}</p>
+                <a
+                  v-if="candidate.productUrl"
+                  :href="candidate.productUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >{{ candidate.product }} ↗</a>
+                <strong v-else>{{ candidate.product }}</strong>
+              </div>
+              <dl>
+                <div>
+                  <dt>利率差</dt>
+                  <dd>+{{ candidateRateDifference(candidate).toFixed(2) }}%</dd>
+                </div>
+                <div>
+                  <dt>估計年化差額</dt>
+                  <dd>+{{ formatAnnualUsd(candidateAnnualDifference(candidate)) }}</dd>
+                </div>
+              </dl>
+            </article>
+          </div>
+
+          <p class="usdc-comparison-note">
+            僅比較同鏈、同資產及相同 APR／APY 口徑；年收益與差額為依目前利率估算的事實摘要，不代表搬倉建議。
+          </p>
         </div>
       </section>
 
@@ -1532,37 +1715,58 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   }
 }
 
-.current-position {
-  margin-top: 20px;
-  padding: 18px 22px;
+.usdc-comparison { margin-top: 18px; }
+
+.usdc-position-picker {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--color-surface);
 }
 
-.current-label {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
+.usdc-position-picker label { display: flex; flex-direction: column; gap: 4px; color: var(--color-text-primary); font-size: .8125rem; }
+.usdc-position-picker label small { color: var(--color-text-muted); font-size: .75rem; }
+.usdc-position-picker select { min-width: min(390px, 62%); padding: 9px 34px 9px 11px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; font-size: .8125rem; }
 
-.current-value {
-  margin: 8px 0 0;
-  font-size: 1.0625rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--color-text-primary);
-}
-
-.opportunities {
-  margin: 16px 0 0;
-  padding: 0;
-  border: 1px solid var(--color-border);
+.usdc-current-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, #168f87 42%, var(--color-border));
   border-radius: 14px;
-  background: var(--color-surface);
-  list-style: none;
-  overflow: hidden;
+  background: color-mix(in srgb, #168f87 5%, var(--color-surface));
 }
+
+.usdc-current-identity p { margin: 0 0 7px; color: #168f87; font-size: .75rem; }
+.usdc-current-identity strong { display: block; color: var(--color-text-primary); font-size: 1rem; }
+.usdc-current-identity small { display: block; margin-top: 6px; color: var(--color-text-muted); font-size: .75rem; }
+.usdc-current-metrics { display: grid; grid-template-columns: repeat(3, auto); gap: 28px; margin: 0; }
+.usdc-current-metrics dt, .usdc-candidate-row dt { color: var(--color-text-muted); font-size: .6875rem; }
+.usdc-current-metrics dd { margin: 6px 0 0; white-space: nowrap; color: var(--color-text-primary); font-size: .9375rem; font-weight: 650; }
+
+.usdc-candidate-head { display: flex; gap: 16px; align-items: flex-end; justify-content: space-between; margin-top: 22px; }
+.usdc-candidate-head h3 { margin: 0; color: var(--color-text-primary); font-size: .9375rem; }
+.usdc-candidate-head p { margin: 5px 0 0; color: var(--color-text-muted); font-size: .75rem; }
+.usdc-candidate-head > span { color: var(--color-text-muted); font-size: .75rem; }
+.usdc-candidate-list { margin-top: 10px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); overflow: hidden; }
+.usdc-candidate-row { display: flex; gap: 20px; align-items: center; justify-content: space-between; padding: 16px 18px; }
+.usdc-candidate-row + .usdc-candidate-row { border-top: 1px solid var(--color-border-subtle); }
+.usdc-candidate-row p { margin: 0 0 5px; color: var(--color-text-muted); font-size: .75rem; }
+.usdc-candidate-row a, .usdc-candidate-row strong { color: var(--color-text-primary); font-size: .875rem; font-weight: 600; text-decoration: none; }
+.usdc-candidate-row a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.usdc-candidate-row dl { display: grid; grid-template-columns: repeat(2, minmax(100px, auto)); gap: 22px; margin: 0; text-align: right; }
+.usdc-candidate-row dd { margin: 5px 0 0; white-space: nowrap; color: #168f87; font-size: .875rem; font-weight: 650; }
+.usdc-comparison-state { margin-top: 10px; padding: 16px 18px; border: 1px dashed var(--color-border); border-radius: 12px; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }
+.usdc-comparison-error { color: var(--color-text-body); }
+.usdc-comparison-error button { margin-left: 8px; padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+.usdc-comparison-note { margin: 12px 2px 0; color: var(--color-text-muted); font-size: .75rem; line-height: 1.55; }
 
 .events {
   margin: 20px 0 0;
@@ -1693,6 +1897,12 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   .portfolio-section-head { flex-direction: column; }
   .position-card { align-items: flex-start; flex-direction: column; gap: 12px; }
   .position-values { text-align: left; }
+  .usdc-position-picker { align-items: stretch; flex-direction: column; gap: 10px; }
+  .usdc-position-picker select { width: 100%; min-width: 0; }
+  .usdc-current-card { grid-template-columns: 1fr; }
+  .usdc-current-metrics { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .usdc-candidate-row { align-items: flex-start; flex-direction: column; }
+  .usdc-candidate-row dl { width: 100%; text-align: left; }
   .market-tools { align-items: stretch; flex-direction: column; }
   .market-search { min-width: 100%; }
   .market-sort-controls { flex-wrap: wrap; }
@@ -1708,9 +1918,6 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
     font-size: 1.625rem;
   }
 
-  .current-value {
-    font-size: 0.975rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1721,5 +1928,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   .grid-4 {
     grid-template-columns: 1fr;
   }
+
+  .usdc-current-metrics { grid-template-columns: 1fr; }
+  .usdc-candidate-row dl { grid-template-columns: 1fr; gap: 12px; }
 }
 </style>

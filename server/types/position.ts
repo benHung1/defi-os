@@ -16,6 +16,9 @@ export interface UsdcCurrentPosition {
   opportunityType: OpportunityType
   chain: string
   amount: number
+  /** Rate observed by the read-only Portfolio adapter for this exact position. */
+  rate?: number
+  rateType?: RateType
 }
 
 /**
