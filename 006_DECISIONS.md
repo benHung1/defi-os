@@ -144,9 +144,23 @@ Rules:
 - Wallet assets and protocol positions are read from public onchain data
 - Each supported protocol has a protocol-specific position adapter
 - Indexers may discover positions, but balances must be read from or verified against protocol contracts
-- Initial Ethereum coverage is Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, and Yearn
+- Initial Ethereum coverage is Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, Yearn, Pareto, Midas, Dolomite, and Sentora
 - Unsupported or partially unavailable positions must not be represented as zero
 - The product remains a DeFi decision companion, not a general wallet or exchange portfolio tracker
+
+---
+
+## DEC-013 — One Product Registry for Market and Portfolio
+
+Market discovery and wallet-position coverage use one server-side product registry.
+
+Rules:
+
+- A product is admitted to formal Market search only when a matching read-only position adapter is enabled
+- DefiLlama is discovery and market-observation input, not proof that a wallet position is supported
+- Product identity is explicit for fixed vaults and dynamic only where the adapter discovers the same official product family
+- The API returns `positionReadable`; the client renders that capability and must not infer it from protocol names
+- New chains or products are added to Market only together with their position-reading path
 
 ---
 

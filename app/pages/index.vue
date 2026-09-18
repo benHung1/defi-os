@@ -52,6 +52,7 @@ interface YieldOpportunity {
   productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
+  positionReadable?: boolean
   dataQuality: string
   fetchedAt: string
 }
@@ -97,15 +98,6 @@ interface UsdcMarketDashboardResponse {
 
 const MARKET_ALL_PRODUCT_LIMIT = 100
 const MARKET_INITIAL_PROTOCOL_LIMIT = 5
-const ETHEREUM_POSITION_PROTOCOLS = new Set(['Aave', 'Spark', 'Morpho Blue'])
-const ETHEREUM_USDC_POSITION_PROTOCOLS = new Set(['Compound', 'Fluid', 'Maple', 'Yearn'])
-
-function supportsWalletPosition (opportunity: YieldOpportunity): boolean {
-  if (opportunity.chain !== 'Ethereum') return false
-  return ETHEREUM_POSITION_PROTOCOLS.has(opportunity.protocol)
-    || (opportunity.asset === 'USDC' && ETHEREUM_USDC_POSITION_PROTOCOLS.has(opportunity.protocol))
-}
-
 const dashboard: Dashboard = {
   greeting: '早安',
   date: '2026 年 8 月 5 日',
@@ -419,7 +411,7 @@ const marketGroups = computed(() => {
     }
     group.totalTvlUsd += opportunity.tvlUsd ?? 0
     group.sourceKinds.add(opportunity.sourceKind)
-    group.supportsWalletPosition ||= supportsWalletPosition(opportunity)
+    group.supportsWalletPosition ||= opportunity.positionReadable === true
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
       rank: index + 1,

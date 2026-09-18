@@ -7,6 +7,7 @@ import type {
   YieldOpportunity
 } from '../types/yield'
 import { getUsdcMarketOpportunities } from './usdcMarketService'
+import { attachPositionSupport } from '../productRegistry'
 
 /**
  * Presentation ceiling for the Market Dashboard UI.
@@ -150,7 +151,7 @@ export async function getUsdcMarketDashboard (
   )
   const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(filtered, sort)
   const limit = options.limit ?? 5
-  const visibleProducts = dashboardOpportunities.slice(0, limit)
+  const visibleProducts = dashboardOpportunities.slice(0, limit).map(attachPositionSupport)
 
   return {
     data: visibleProducts,

@@ -99,7 +99,7 @@ export const yearnPositionAdapter: ProtocolPositionAdapter = {
     const failedCount = settled.filter(result => result.status === 'rejected').length
     return {
       positions,
-      warnings: failedCount > 0 ? [`Yearn could not verify ${failedCount} active vaults`] : []
+      warnings: failedCount > 0 ? [`Yearn positions unavailable for ${failedCount} active vaults`] : []
     }
   }
 }

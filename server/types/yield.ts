@@ -67,6 +67,8 @@ export interface YieldOpportunity {
   productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
+  /** The matching product has a live read-only wallet-position adapter. */
+  positionReadable?: boolean
   /**
    * Whether DeFi OS can currently trust this provider observation enough to use it.
    * Not a protocol-safety or economic-risk label.

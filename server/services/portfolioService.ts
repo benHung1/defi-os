@@ -63,7 +63,7 @@ export async function getPortfolio (address: string): Promise<PortfolioResponse>
     meta: {
       fetchedAt: new Date().toISOString(),
       balanceSource: 'Ethereum JSON-RPC',
-      positionSource: 'Protocol contracts; Morpho discovery via official indexer with onchain verification',
+      positionSource: 'Protocol contracts; official registries and APIs for discovery or valuation metadata with onchain balance verification',
       priceSource: 'DefiLlama Coins API',
       partial: warnings.length > 0,
       warnings

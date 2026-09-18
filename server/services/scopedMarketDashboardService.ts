@@ -1,6 +1,7 @@
 import { fetchAaveScopedMarket, type SupportedMarketAsset } from '../providers/aave/scopedMarkets'
 import { fetchDefiLlamaYieldPools } from '../providers/defillama/yields'
 import { getMarketChain, type SupportedMarketChain } from '../marketRegistry'
+import { attachPositionSupport } from '../productRegistry'
 import type { UsdcMarketDashboardResponse, YieldOpportunity } from '../types/yield'
 import { resolveFreshnessStatus } from '../types/yield'
 import { getUsdcMarketDashboard } from './usdcMarketDashboardService'
@@ -44,14 +45,17 @@ export async function getMultiScopedMarketDashboard (
   }
 
   const query = options.query?.trim().toLocaleLowerCase()
-  const allData = [...officialData, ...discoveryData].filter(item => !query || [
+  const allData = [...officialData, ...discoveryData]
+    .map(attachPositionSupport)
+    .filter(item => item.positionReadable === true)
+    .filter(item => !query || [
     item.protocol,
     item.product,
     item.chain,
     item.asset,
     item.source,
     item.sourcePoolId
-  ].some(value => value?.toLocaleLowerCase().includes(query)))
+    ].some(value => value?.toLocaleLowerCase().includes(query)))
   const limit = options.limit ?? 5
   const rankedProducts = [...allData]
     .sort((left, right) => (right.tvlUsd ?? 0) - (left.tvlUsd ?? 0))
@@ -98,7 +102,7 @@ export async function getScopedMarketDashboard (
 
   const chainConfig = getMarketChain(chain)
   const { market, fetchedAt } = await fetchAaveScopedMarket(chainConfig.chainId, chainConfig.aaveMarket, asset, options.forceRefresh)
-  const opportunity: YieldOpportunity = {
+  const opportunity: YieldOpportunity = attachPositionSupport({
     protocol: 'Aave',
     product: `Aave V3 ${chainConfig.label} ${market.reserveSymbol}`,
     opportunityType: 'LENDING_SUPPLY',
@@ -114,7 +118,7 @@ export async function getScopedMarketDashboard (
     sourcePoolId: `${market.marketAddress}:${market.reserveAddress}`,
     dataQuality: 'VERIFIED',
     fetchedAt
-  }
+  })
 
   return {
     data: [opportunity],

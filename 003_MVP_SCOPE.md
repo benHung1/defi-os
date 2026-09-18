@@ -80,7 +80,7 @@ Position fields include:
 - Current APR or APY without converting between the two
 - Verification source and timestamp
 
-Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, and Yearn on Ethereum. Fluid and Maple are read through their ERC-4626 vault contracts; Yearn vault discovery comes from the official registry API and balances are valued onchain. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
+Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, Yearn, Pareto, Midas, Dolomite, and Sentora on Ethereum. Standard vaults are valued through their protocol contracts; dynamic product discovery uses official registries or APIs and verifies the user's balance onchain. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
 
 ---
 
@@ -130,6 +130,8 @@ Initial examples may include:
 The Market module must not attempt to reproduce all DefiLlama features.
 
 Only information useful for comparison and decision making should be shown.
+
+Every product admitted to the formal Market search must have a live read-only position adapter. Discovery sources may find additional products, but those products stay outside the user-facing result set until Portfolio can identify the matching position reliably.
 
 ---
 

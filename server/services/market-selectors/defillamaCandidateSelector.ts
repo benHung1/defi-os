@@ -1,26 +1,14 @@
 import type { SupportedMarketAsset } from '../../providers/aave/scopedMarkets'
 import type { DefiLlamaYieldPool } from '../../providers/defillama/yields'
 import { getMarketChain, type SupportedMarketChain } from '../../marketRegistry'
-import type { ExcludedMarketObservation, OpportunityType, YieldOpportunity } from '../../types/yield'
+import { DEFILLAMA_DISCOVERY_PRODUCTS, isRegisteredDiscoveryPool } from '../../productRegistry'
+import type { ExcludedMarketObservation, YieldOpportunity } from '../../types/yield'
 import { evaluateObservationDataQuality } from '../../types/yield'
 
 const MIN_TVL_USD = 10_000_000
 const MAX_CANDIDATE_PRODUCTS = 100
 const SOURCE_URL = 'https://yields.llama.fi/pools'
 const COMPLEX_PRODUCT_META = /\b(lp|leveraged|loop|carry)\b/i
-
-const PROJECTS: Record<string, { protocol: string, type: OpportunityType }> = {
-  maple: { protocol: 'Maple', type: 'LENDING_SUPPLY' },
-  'sky-lending': { protocol: 'Sky', type: 'LENDING_SUPPLY' },
-  'venus-core-pool': { protocol: 'Venus', type: 'LENDING_SUPPLY' },
-  'pareto-credit': { protocol: 'Pareto', type: 'CURATED_VAULT' },
-  'sentora-curator': { protocol: 'Sentora', type: 'CURATED_VAULT' },
-  'midas-rwa': { protocol: 'Midas', type: 'CURATED_VAULT' },
-  dolomite: { protocol: 'Dolomite', type: 'LENDING_SUPPLY' },
-  'yearn-finance': { protocol: 'Yearn', type: 'CURATED_VAULT' },
-  'fusion-by-ipor': { protocol: 'IPOR Fusion', type: 'CURATED_VAULT' },
-  'yo-protocol': { protocol: 'YO', type: 'CURATED_VAULT' }
-}
 
 const DEFILLAMA_CHAIN_NAMES: Partial<Record<SupportedMarketChain, string>> = {
   ethereum: 'Ethereum', bnb: 'BSC', avalanche: 'Avalanche', sonic: 'Sonic',
@@ -53,10 +41,11 @@ export function selectDefiLlamaCandidateProducts (
   const candidates: YieldOpportunity[] = []
 
   for (const pool of pools) {
-    const project = PROJECTS[pool.project]
+    const project = DEFILLAMA_DISCOVERY_PRODUCTS[pool.project]
     const chainKey = selectedChains.get(pool.chain)
     const asset = normalizedAsset(pool.symbol, selectedAssets)
-    if (!project || !chainKey || !asset || pool.exposure !== 'single' || pool.ilRisk !== 'no'
+    if (!project || !isRegisteredDiscoveryPool(pool.project, pool.pool)
+      || !chainKey || !asset || pool.exposure !== 'single' || pool.ilRisk !== 'no'
       || pool.tvlUsd === null || pool.tvlUsd < MIN_TVL_USD || pool.apy <= 0
       || (pool.poolMeta !== null && COMPLEX_PRODUCT_META.test(pool.poolMeta))) continue
 
