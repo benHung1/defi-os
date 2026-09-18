@@ -1,6 +1,4 @@
 <script setup lang="ts">
-type DecisionLevel = 'healthy' | 'attention'
-
 interface SummaryItem {
   label: string
   value: string
@@ -18,7 +16,6 @@ interface ChainEvent {
 interface Dashboard {
   greeting: string
   date: string
-  portfolio: SummaryItem[]
   events: ChainEvent[]
   updatedAt: string
 }
@@ -98,55 +95,12 @@ interface UsdcMarketDashboardResponse {
   }
 }
 
-interface UsdcCurrentPosition {
-  asset: 'USDC'
-  protocol: string
-  product: string
-  opportunityType: OpportunityType
-  chain: string
-  amount: number
-}
-
-interface UsdcCurrentPositionRate {
-  rate: number
-  rateType: RateType
-}
-
-interface UsdcDecisionCandidateResponse {
-  currentPosition: UsdcCurrentPosition
-  currentPositionRate: UsdcCurrentPositionRate | null
-  candidates: YieldOpportunity[]
-  meta: YieldResponseMeta
-}
-
-/**
- * Temporary current-position fixture until Portfolio Sprint.
- * Identity aligns with server/api/decision/usdc.get.ts temporaryCurrentPosition.
- * Not wallet-derived. Not mixed into Decision candidate market data.
- */
-const CURRENT_POSITION_FIXTURE: UsdcCurrentPosition = {
-  asset: 'USDC',
-  protocol: 'Spark',
-  product: 'Spark Savings USDC',
-  opportunityType: 'SAVINGS',
-  chain: 'Ethereum',
-  amount: 40000
-}
-
-/** Presentation ceiling for personal higher-yield comparison rows (not a recommendation rank). */
-const PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT = 5
 const MARKET_ALL_PRODUCT_LIMIT = 100
 const MARKET_INITIAL_PROTOCOL_LIMIT = 5
 
 const dashboard: Dashboard = {
   greeting: '早安',
   date: '2026 年 8 月 5 日',
-  portfolio: [
-    { label: '投資組合價值', value: 'US$128,450', note: '手動輸入的持倉合計' },
-    { label: '資產', value: '4 種', note: 'USDC、ETH、WBTC、stETH' },
-    { label: '協議', value: '3 個', note: 'Aave、Lido、Compound' },
-    { label: '鏈', value: '2 條', note: 'Ethereum、Arbitrum' }
-  ],
   events: [
     {
       type: '協議更新',
@@ -171,20 +125,6 @@ const dashboard: Dashboard = {
     }
   ],
   updatedAt: '2026-08-05 16:40'
-}
-
-function formatSignedRateDiff (diff: number): string {
-  const sign = diff > 0 ? '+' : ''
-  return `${sign}${diff.toFixed(2)}%`
-}
-
-function formatAnnualDiff (amount: number, rateDiff: number): string | null {
-  if (rateDiff === 0) {
-    return null
-  }
-  const yearly = Math.round(amount * (rateDiff / 100))
-  const sign = yearly > 0 ? '+' : ''
-  return `約 ${sign}${yearly.toLocaleString('en-US')} USDC / 年`
 }
 
 function opportunityTypeLabel (opportunityType: OpportunityType): string {
@@ -265,7 +205,8 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
-const { isConnected: isWalletConnected } = useWalletSession()
+const { address: walletAddress, isConnected: isWalletConnected } = useWalletSession()
+const { portfolio: walletPortfolio, pending: portfolioPending, error: portfolioError, refresh: refreshPortfolio } = usePortfolio()
 const route = useRoute()
 const router = useRouter()
 
@@ -421,12 +362,6 @@ function toggleMarketProtocols (): void {
   showAllMarketProtocols.value = !showAllMarketProtocols.value
 }
 
-const {
-  data: decisionPayload,
-  pending: decisionPending,
-  error: decisionError
-} = await useFetch<UsdcDecisionCandidateResponse>('/api/decision/usdc')
-
 const marketGroups = computed(() => {
   const payload = marketDashboard.value
   if (!payload) {
@@ -561,84 +496,6 @@ const marketFetchedAtLabel = computed(() => {
   return formatFetchedAt(fetchedAt)
 })
 
-const displayPosition = computed(() => {
-  return decisionPayload.value?.currentPosition ?? CURRENT_POSITION_FIXTURE
-})
-
-const currentPositionRate = computed(() => {
-  return decisionPayload.value?.currentPositionRate ?? null
-})
-
-const decisionCandidates = computed(() => {
-  return decisionPayload.value?.candidates ?? []
-})
-
-/**
- * Personal rate comparison is allowed only when rateType matches.
- * Do not convert APR↔APY; exclude mismatched types from numeric comparison.
- */
-function isRateTypeComparable (
-  candidate: YieldOpportunity,
-  positionRate: UsdcCurrentPositionRate
-): boolean {
-  return candidate.rateType === positionRate.rateType
-    && Number.isFinite(candidate.rate)
-}
-
-const rateComparableCandidates = computed(() => {
-  const positionRate = currentPositionRate.value
-  if (!positionRate) {
-    return []
-  }
-
-  return decisionCandidates.value.filter(candidate =>
-    isRateTypeComparable(candidate, positionRate)
-  )
-})
-
-const higherYieldCandidates = computed(() => {
-  const positionRate = currentPositionRate.value
-  if (!positionRate) {
-    return []
-  }
-
-  return rateComparableCandidates.value
-    .filter(candidate => candidate.rate > positionRate.rate)
-    .slice()
-    .sort((left, right) => {
-      const rateDiff = right.rate - left.rate
-      if (rateDiff !== 0) {
-        return rateDiff
-      }
-      return (right.tvlUsd ?? -1) - (left.tvlUsd ?? -1)
-    })
-})
-
-const personalComparisonRows = computed(() => {
-  const position = displayPosition.value
-  const positionRate = currentPositionRate.value
-  if (!positionRate) {
-    return []
-  }
-
-  return higherYieldCandidates.value
-    .slice(0, PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT)
-    .map((candidate) => {
-      const rateDiff = Number((candidate.rate - positionRate.rate).toFixed(2))
-      return {
-        key: `${candidate.protocol}:${candidate.product}:${candidate.sourcePoolId ?? ''}`,
-        protocol: candidate.protocol,
-        product: candidate.product,
-        aprLabel: formatMarketRate(candidate.rate, candidate.rateType),
-        tvlLabel: formatCompactUsd(candidate.tvlUsd),
-        metaLabel: `${opportunityDisplayTypeLabel(candidate)} · ${candidate.chain}`,
-        isCurrent: false,
-        aprDiffLabel: `${formatSignedRateDiff(rateDiff)} vs 目前`,
-        annualDiffLabel: formatAnnualDiff(position.amount, rateDiff)
-      }
-    })
-})
-
 const hero = computed(() => {
   if (!isWalletConnected.value) {
     return {
@@ -654,54 +511,58 @@ const hero = computed(() => {
     }
   }
 
-  const position = displayPosition.value
-  const rate = currentPositionRate.value
-  const higherCount = higherYieldCandidates.value.length
-  // Neutral observational state only — higher yield does not imply attention.
-  const level: DecisionLevel = 'healthy'
-
-  if (!rate) {
+  if (portfolioPending.value) {
     return {
-      level,
+      level: 'healthy' as const,
+      question: '正在讀取你的公開鏈上資料',
+      headline: '正在整理 Ethereum 上的主要資產…',
+      statement: '這次查詢不會要求簽名或交易。',
+      evidence: ['ETH、USDC、USDT、WBTC', '資料由 Ethereum JSON-RPC 即時讀取']
+    }
+  }
+
+  if (portfolioError.value || !walletPortfolio.value) {
+    return {
+      level: 'attention' as const,
       question: '今天有什麼需要我注意？',
-      headline: `目前部位：${position.protocol} ${position.product}`,
-      statement: '已取得候選資料，但暫時無法對應目前部位的市場觀察利率，因此尚不能計算與市場的差距。',
-      evidence: [
-        `目前 ${position.amount.toLocaleString('en-US')} ${position.asset}（示意部位，非錢包讀取）`,
-        '部位利率需待對應後才能比較'
-      ]
+      headline: '目前無法取得錢包資產',
+      statement: portfolioError.value ?? '鏈上資料暫時無法使用，請稍後重試。',
+      evidence: ['錢包仍維持唯讀連線', '你可以稍後重新整理資產資料']
     }
   }
 
-  const evidence = [
-    `目前部位觀察利率 ${formatMarketRate(rate.rate, rate.rateType)}`,
-    `同 ${rate.rateType} 且高於目前部位的候選：${higherCount} 個`
-  ]
-
-  if (higherCount > 0) {
-    const top = higherYieldCandidates.value[0]
-    if (top) {
-      const diff = Number((top.rate - rate.rate).toFixed(2))
-      evidence.push(
-        `目前觀察到的最大差距：${top.protocol} ${top.product} ${formatSignedRateDiff(diff)}`
-      )
-    }
-  }
-
+  const portfolio = walletPortfolio.value
+  const assetCount = portfolio.summary.assetCount
   return {
-    level,
+    level: 'healthy' as const,
     question: '今天有什麼需要我注意？',
-    headline: higherCount > 0
-      ? `目前觀察到 ${higherCount} 個同單位下高於你目前部位的 USDC 選項`
-      : `目前未觀察到同單位下高於 ${position.protocol} 部位的 USDC 選項`,
-    statement: higherCount > 0
-      ? '以下為事實摘要，詳細比較見下方。這不是搬倉建議。'
-      : `以目前示意部位與可比較候選對照，尚未看到高於 ${formatMarketRate(rate.rate, rate.rateType)} 的選項。`,
-    evidence
+    headline: assetCount > 0 ? `已在 Ethereum 找到 ${assetCount} 種主要資產` : '目前未找到已支援的主要資產',
+    statement: '資產餘額已由公開地址讀取；協議部位辨識將在下一階段接入。',
+    evidence: [
+      `地址 ${walletAddress.value?.slice(0, 6)}…${walletAddress.value?.slice(-4)}`,
+      portfolio.meta.partial ? '部分資料暫時不可用' : '主要資產餘額已完成更新',
+      '目前尚未產生協議收益比較'
+    ]
   }
 })
 
 const isHealthy = computed(() => hero.value.level === 'healthy')
+const walletAssets = computed(() => walletPortfolio.value?.chains.flatMap(chain => chain.assets) ?? [])
+const walletUsdc = computed(() => walletAssets.value.find(asset => asset.symbol === 'USDC')?.amount ?? 0)
+const portfolioSummaryItems = computed<SummaryItem[]>(() => {
+  const portfolio = walletPortfolio.value
+  if (!portfolio) return []
+  const symbols = walletAssets.value.map(asset => asset.symbol).join('、') || '未找到已支援資產'
+  const totalValue = portfolio.summary.totalUsd === null
+    ? '價格不完整'
+    : `US$${portfolio.summary.totalUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+  return [
+    { label: '投資組合價值', value: totalValue, note: 'Ethereum 主要資產合計' },
+    { label: '資產', value: `${portfolio.summary.assetCount} 種`, note: symbols },
+    { label: '協議', value: `${portfolio.summary.protocolCount} 個`, note: '協議部位尚未接入' },
+    { label: '鏈', value: `${portfolio.summary.chainCount} 條`, note: portfolio.summary.chainCount ? 'Ethereum' : '未找到資產' }
+  ]
+})
 </script>
 
 <template>
@@ -732,42 +593,21 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
         class="hero"
         :class="isHealthy ? 'hero-healthy' : 'hero-attention'"
       >
-        <template v-if="decisionPending">
-          <p class="hero-question">今天有什麼需要我注意？</p>
-          <h1 class="hero-headline">正在取得個人 USDC 比較資料…</h1>
-          <p class="hero-statement">
-            正在載入比較資料，請稍候。
-          </p>
-        </template>
+        <p class="hero-question">{{ hero.question }}</p>
+        <h1 class="hero-headline">
+          <span class="hero-dot">{{ !isWalletConnected ? '○' : isHealthy ? '🟢' : '🟡' }}</span>
+          {{ hero.headline }}
+        </h1>
+        <p class="hero-statement">{{ hero.statement }}</p>
 
-        <template v-else-if="decisionError">
-          <p class="hero-question">今天有什麼需要我注意？</p>
-          <h1 class="hero-headline">
-            <span class="hero-dot">🟡</span>
-            目前無法取得個人 USDC 比較資料
-          </h1>
-          <p class="hero-statement">
-            暫時無法載入個人比較資料。下方市場區塊仍可能獨立可用。
-          </p>
-        </template>
-
-        <template v-else>
-          <p class="hero-question">{{ hero.question }}</p>
-          <h1 class="hero-headline">
-            <span class="hero-dot">{{ !isWalletConnected ? '○' : isHealthy ? '🟢' : '🟡' }}</span>
-            {{ hero.headline }}
-          </h1>
-          <p class="hero-statement">{{ hero.statement }}</p>
-
-          <ul class="evidence">
-            <li
-              v-for="item in hero.evidence"
-              :key="item"
-            >
-              {{ item }}
-            </li>
-          </ul>
-        </template>
+        <ul class="evidence">
+          <li
+            v-for="item in hero.evidence"
+            :key="item"
+          >
+            {{ item }}
+          </li>
+        </ul>
       </section>
 
       <section class="section wallet-gated-section">
@@ -777,9 +617,24 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
             <p>{{ isWalletConnected ? '我的資產現在在哪裡？' : '連接後，這裡會整理你的鏈上資產與 DeFi 部位。' }}</p>
           </div>
         </div>
-        <div v-if="isWalletConnected" class="grid grid-4">
+        <div v-if="isWalletConnected && portfolioPending" class="wallet-empty-state">
+          <div class="wallet-empty-icon" aria-hidden="true">↻</div>
+          <div>
+            <strong>正在讀取鏈上資產</strong>
+            <p>正在查詢 Ethereum 上的 ETH、USDC、USDT 與 WBTC。</p>
+          </div>
+        </div>
+        <div v-else-if="isWalletConnected && portfolioError" class="wallet-empty-state">
+          <div class="wallet-empty-icon" aria-hidden="true">!</div>
+          <div>
+            <strong>目前無法取得錢包資產</strong>
+            <p>{{ portfolioError }}</p>
+            <button type="button" class="inline-retry" @click="refreshPortfolio">重新嘗試</button>
+          </div>
+        </div>
+        <div v-else-if="isWalletConnected" class="grid grid-4">
           <SummaryCard
-            v-for="item in dashboard.portfolio"
+            v-for="item in portfolioSummaryItems"
             :key="item.label"
             :label="item.label"
             :value="item.value"
@@ -809,77 +664,21 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
           </div>
         </div>
 
-        <template v-else>
-          <div class="current-position">
-          <p class="current-label">目前部位（示意 fixture，非錢包讀取）</p>
-          <p class="current-value">
-            {{ displayPosition.amount.toLocaleString('en-US') }} {{ displayPosition.asset }}
-            · {{ displayPosition.protocol }}
-            · {{ displayPosition.product }}
-            <template v-if="currentPositionRate">
-              · {{ formatMarketRate(currentPositionRate.rate, currentPositionRate.rateType) }}
-            </template>
-            <template v-else>
-              · 利率待對應
-            </template>
-          </p>
+        <div v-else-if="portfolioPending" class="wallet-empty-state compact">
+          <div class="wallet-empty-icon" aria-hidden="true">↻</div>
+          <div>
+            <strong>正在確認 USDC 餘額</strong>
+            <p>完成資產讀取後，這裡會顯示可用於後續協議比較的資料。</p>
+          </div>
         </div>
 
-        <p
-          v-if="decisionPending"
-          class="market-status"
-        >
-          正在取得個人比較資料…
-        </p>
-
-        <p
-          v-else-if="decisionError"
-          class="market-status market-status-error"
-        >
-          目前無法取得個人 USDC 比較資料。
-        </p>
-
-        <p
-          v-else-if="!currentPositionRate"
-          class="market-status"
-        >
-          已取得候選資料，但目前部位缺少市場觀察利率，暫不顯示差距列表。
-        </p>
-
-        <p
-          v-else-if="personalComparisonRows.length === 0"
-          class="market-status"
-        >
-          目前沒有同單位下高於你目前部位的候選機會。
-        </p>
-
-        <template v-else>
-          <ul class="opportunities">
-            <OpportunityRow
-              v-for="row in personalComparisonRows"
-              :key="row.key"
-              :protocol="row.protocol"
-              :product="row.product"
-              :apr-label="row.aprLabel"
-              :tvl-label="row.tvlLabel"
-              :meta-label="row.metaLabel"
-              :is-current="row.isCurrent"
-              :apr-diff-label="row.aprDiffLabel"
-              :annual-diff-label="row.annualDiffLabel"
-            />
-          </ul>
-
-          <p
-            v-if="higherYieldCandidates.length > PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT"
-            class="market-notice"
-          >
-            列表僅顯示同單位下較高收益候選前 {{ PERSONAL_HIGHER_YIELD_DISPLAY_LIMIT }} 筆。
-          </p>
-          <p class="market-notice">
-            年化差額依示意部位估算，不是保證收益。
-          </p>
-          </template>
-        </template>
+        <div v-else class="wallet-empty-state compact">
+          <div class="wallet-empty-icon" aria-hidden="true">$</div>
+          <div>
+            <strong>{{ walletUsdc > 0 ? `錢包持有 ${walletUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC` : '未找到 Ethereum USDC 餘額' }}</strong>
+            <p>目前只完成錢包資產讀取；尚未偵測 Aave、Spark、Compound 或 Morpho Blue 協議部位，因此不顯示虛構收益比較。</p>
+          </div>
+        </div>
       </section>
 
       <section class="section">
@@ -1348,6 +1147,18 @@ const isHealthy = computed(() => hero.value.level === 'healthy')
 .wallet-empty-state.compact { min-height: 96px; }
 .wallet-empty-state strong { color: var(--color-text-primary); font-size: .9375rem; }
 .wallet-empty-state p { margin: 6px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }
+.inline-retry {
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-soft);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: .8125rem;
+}
+.inline-retry:hover { border-color: var(--color-text-muted); }
 .wallet-empty-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid color-mix(in srgb, #168f87 48%, var(--color-border)); border-radius: 50%; color: #168f87; font-weight: 700; }
 
 .market-filter-actions {
