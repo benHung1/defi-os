@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import type { PortfolioPosition } from '../../shared/types/portfolio'
+import type {
+  ChainEventRecord,
+  ChainEventResponse,
+  ChainEventSeverity,
+  ChainEventType
+} from '../../shared/types/chainEvents'
 
 interface SummaryItem {
   label: string
@@ -7,19 +13,9 @@ interface SummaryItem {
   note: string
 }
 
-interface ChainEvent {
-  type: string
-  title: string
-  protocol: string
-  attention: string
-  time: string
-}
-
 interface Dashboard {
   greeting: string
   date: string
-  events: ChainEvent[]
-  updatedAt: string
 }
 
 type OpportunityType = 'LENDING_SUPPLY' | 'SAVINGS' | 'CURATED_VAULT'
@@ -118,31 +114,12 @@ const MARKET_ALL_PRODUCT_LIMIT = 100
 const MARKET_INITIAL_PROTOCOL_LIMIT = 5
 const dashboard: Dashboard = {
   greeting: '早安',
-  date: '2026 年 8 月 5 日',
-  events: [
-    {
-      type: '協議更新',
-      title: 'Aave 完成利率模型調整',
-      protocol: 'Aave',
-      attention: '可觀察',
-      time: '2 小時前'
-    },
-    {
-      type: '治理通過',
-      title: 'Lido 通過提領佇列參數更新',
-      protocol: 'Lido',
-      attention: '可觀察',
-      time: '今天 09:20'
-    },
-    {
-      type: '市場動態',
-      title: 'Compound USDC 池 TVL 小幅變動',
-      protocol: 'Compound',
-      attention: '可觀察',
-      time: '昨天 21:05'
-    }
-  ],
-  updatedAt: '2026-08-05 16:40'
+  date: new Intl.DateTimeFormat('zh-TW', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'Asia/Taipei'
+  }).format(new Date())
 }
 
 function opportunityTypeLabel (opportunityType: OpportunityType): string {
@@ -192,10 +169,30 @@ function formatFetchedAt (fetchedAt: string): string {
   return `${values.year}/${values.month}/${values.day} ${values.hour}:${values.minute}`
 }
 
-function eventTone (type: string): string {
-  if (type.includes('治理')) return 'governance'
-  if (type.includes('市場')) return 'market'
-  return 'protocol'
+function eventTypeLabel (type: ChainEventType): string {
+  return ({
+    SECURITY: '安全事件',
+    PAUSE: '合約狀態',
+    UPGRADE: '協議升級',
+    GOVERNANCE: '治理結果'
+  })[type]
+}
+
+function eventSeverityLabel (severity: ChainEventSeverity): string {
+  return ({
+    CRITICAL: '立即查看',
+    WATCH: '需要了解',
+    INFO: '資訊更新'
+  })[severity]
+}
+
+function eventTone (severity: ChainEventSeverity): string {
+  return ({ CRITICAL: 'critical', WATCH: 'watch', INFO: 'info' })[severity]
+}
+
+function eventScopeLabel (event: ChainEventRecord): string {
+  const scope = [...event.chains, ...event.assets]
+  return scope.length ? scope.join(' · ') : '協議層級'
 }
 
 function opportunitySourceLabel (opportunity: YieldOpportunity): string {
@@ -664,6 +661,74 @@ const candidateAnnualDifference = (candidate: YieldOpportunity): number => {
   return (position.valueUsd ?? position.amount) * candidateRateDifference(candidate) / 100
 }
 const protocolNames = computed(() => [...new Set(walletPositions.value.map(position => position.protocol))])
+const supportedEventProtocols = ['Aave', 'Morpho Blue', 'Spark', 'Compound', 'Fluid'] as const
+const eventProtocols = computed(() => [...new Set(walletPositions.value
+  .map(position => position.protocol)
+  .filter(protocol => supportedEventProtocols.includes(protocol as typeof supportedEventProtocols[number]))
+)])
+const eventChains = computed(() => [...new Set(walletPositions.value.map(position => position.chain))])
+const eventAssets = computed(() => [...new Set(walletPositions.value.map(position => position.asset.toUpperCase()))])
+const chainEventResponse = ref<ChainEventResponse | null>(null)
+const chainEventsPending = ref(false)
+const chainEventsError = ref<string | null>(null)
+let chainEventRequestId = 0
+let chainEventRefreshTimer: ReturnType<typeof setInterval> | undefined
+
+async function refreshChainEvents (): Promise<void> {
+  const requestId = ++chainEventRequestId
+  chainEventsError.value = null
+
+  if (!isWalletConnected.value || eventProtocols.value.length === 0) {
+    chainEventResponse.value = null
+    chainEventsPending.value = false
+    return
+  }
+
+  chainEventsPending.value = true
+  try {
+    const response = await $fetch<ChainEventResponse>('/api/events', {
+      query: {
+        protocols: eventProtocols.value.join(','),
+        chains: eventChains.value.join(','),
+        assets: eventAssets.value.join(','),
+        limit: 5
+      }
+    })
+    if (requestId === chainEventRequestId) chainEventResponse.value = response
+  } catch {
+    if (requestId === chainEventRequestId) {
+      chainEventsError.value = '目前無法取得正式事件來源，請稍後再試。'
+    }
+  } finally {
+    if (requestId === chainEventRequestId) chainEventsPending.value = false
+  }
+}
+
+watch([isWalletConnected, eventProtocols, eventChains, eventAssets], () => {
+  void refreshChainEvents()
+}, { immediate: true })
+
+onMounted(() => {
+  chainEventRefreshTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') void refreshChainEvents()
+  }, 5 * 60 * 1000)
+})
+
+onBeforeUnmount(() => {
+  if (chainEventRefreshTimer) clearInterval(chainEventRefreshTimer)
+})
+
+const chainEvents = computed(() => chainEventResponse.value?.data ?? [])
+const chainEventProviderFailed = computed(() => chainEventResponse.value?.meta.providers.some(provider =>
+  provider.status === 'error'
+) ?? false)
+const chainEventProvidersUnavailable = computed(() => {
+  const providers = chainEventResponse.value?.meta.providers ?? []
+  return providers.length > 0 && providers.every(provider => provider.status === 'error')
+})
+const chainEventFetchedAt = computed(() => chainEventResponse.value?.meta.fetchedAt
+  ? formatFetchedAt(chainEventResponse.value.meta.fetchedAt)
+  : '')
 const positionKindLabel = (kind: string): string => ({
   SUPPLY: '供應', BORROW: '借款', COLLATERAL: '抵押', VAULT: 'Vault'
 })[kind] ?? kind
@@ -1155,31 +1220,101 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
       <section class="section">
         <div class="section-head">
           <h2>鏈上事件</h2>
-          <p>值得留意的變化</p>
+          <p v-if="!isWalletConnected">連接後顯示與持倉相關的正式事件</p>
+          <p v-else-if="eventProtocols.length">{{ eventProtocols.length }} 個持倉協議的正式事件</p>
+          <p v-else>目前沒有可比對的已支援協議</p>
         </div>
-        <ul class="events">
+
+        <div
+          v-if="!isWalletConnected"
+          class="event-state"
+        >
+          <strong>尚未連接錢包</strong>
+          <p>連接後，我們才會依照公開地址中的協議部位查詢正式事件；不會要求交易或 Token 授權。</p>
+        </div>
+
+        <div
+          v-else-if="chainEventsPending && !chainEventResponse"
+          class="event-state"
+          aria-live="polite"
+        >
+          <strong>正在核對持倉相關事件…</strong>
+          <p>只查詢 {{ eventProtocols.join('、') }} 的官方治理或官方 repository。</p>
+        </div>
+
+        <div
+          v-else-if="chainEventsError"
+          class="event-state event-state-error"
+        >
+          <strong>事件資料暫時無法使用</strong>
+          <p>{{ chainEventsError }}</p>
+          <button type="button" @click="refreshChainEvents">重新查詢</button>
+        </div>
+
+        <div
+          v-else-if="eventProtocols.length === 0"
+          class="event-state"
+        >
+          <strong>目前沒有已支援的 DeFi 部位</strong>
+          <p>因此這次沒有呼叫外部事件來源；找到支援的協議部位後，這裡會自動開始比對。</p>
+        </div>
+
+        <div
+          v-else-if="chainEventProvidersUnavailable"
+          class="event-state event-state-error"
+        >
+          <strong>正式事件來源目前無法取得</strong>
+          <p>這不代表近期沒有事件；我們沒有用舊新聞或第三方內容補成結果。</p>
+          <button type="button" @click="refreshChainEvents">重新查詢</button>
+        </div>
+
+        <div
+          v-else-if="chainEvents.length === 0"
+          class="event-state event-state-quiet"
+        >
+          <strong>近期沒有需要特別處理的正式事件</strong>
+          <p>最近 45 天未找到與目前持倉範圍相符的重要安全、暫停、升級或治理事件。</p>
+        </div>
+
+        <ul v-else class="events">
           <li
-            v-for="event in dashboard.events"
-            :key="event.title"
+            v-for="event in chainEvents"
+            :key="event.id"
             class="event"
           >
-            <span class="event-marker" :class="`event-marker-${eventTone(event.type)}`" aria-hidden="true" />
+            <span class="event-marker" :class="`event-marker-${eventTone(event.severity)}`" aria-hidden="true" />
             <div class="event-main">
               <p class="event-meta">
-                <span class="event-type" :class="`event-type-${eventTone(event.type)}`">{{ event.type }}</span>
-                <time>{{ event.time }}</time>
+                <span class="event-type" :class="`event-type-${eventTone(event.severity)}`">{{ eventTypeLabel(event.type) }}</span>
+                <time :datetime="event.occurredAt">{{ formatFetchedAt(event.occurredAt) }}</time>
               </p>
               <p class="event-title">{{ event.title }}</p>
-              <p class="event-protocol">{{ event.protocol }}</p>
+              <p class="event-summary">{{ event.summary }}</p>
+              <p class="event-protocol">{{ event.protocol }} · {{ eventScopeLabel(event) }}</p>
+              <a
+                class="event-source"
+                :href="event.sourceUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+              >{{ event.verification === 'ONCHAIN_VERIFIED' ? '鏈上核對' : '官方來源' }} · {{ event.source }} ↗</a>
             </div>
-            <span class="event-attention">{{ event.attention }}</span>
+            <span class="event-attention" :class="`event-attention-${eventTone(event.severity)}`">
+              {{ eventSeverityLabel(event.severity) }}
+            </span>
           </li>
         </ul>
+
+        <p v-if="chainEventProviderFailed && !chainEventProvidersUnavailable" class="event-provider-note">
+          部分正式來源暫時無法取得；目前只顯示已成功核對的事件。
+        </p>
+        <p v-if="chainEventFetchedAt" class="event-fetched">
+          查詢時間 {{ chainEventFetchedAt }} · 每 5 分鐘重新核對
+        </p>
       </section>
     </main>
 
     <footer class="footer">
-      <p>資料為示意內容，最後更新 {{ dashboard.updatedAt }}</p>
+      <p>市場與事件資料皆標示來源與更新時間。</p>
       <p>DeFi OS 協助你理解已持有的資產，不提供投資建議。</p>
     </footer>
   </div>
@@ -1807,9 +1942,9 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   box-shadow: 0 0 0 1px var(--color-border);
 }
 
-.event-marker-protocol { background: #168f87; }
-.event-marker-governance { background: #7167d9; }
-.event-marker-market { background: #b7791f; }
+.event-marker-critical { background: #c2413b; }
+.event-marker-watch { background: #b7791f; }
+.event-marker-info { background: #168f87; }
 
 .event-main {
   min-width: 0;
@@ -1834,9 +1969,9 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   font-size: 0.75rem;
 }
 
-.event-type-protocol { color: #168f87; }
-.event-type-governance { color: #7167d9; }
-.event-type-market { color: #a56813; }
+.event-type-critical { color: #c2413b; }
+.event-type-watch { color: #a56813; }
+.event-type-info { color: #168f87; }
 
 .event-title {
   margin: 9px 0 0;
@@ -1852,12 +1987,50 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   color: var(--color-text-muted);
 }
 
+.event-summary {
+  max-width: 680px;
+  margin: 7px 0 0;
+  color: var(--color-text-body);
+  font-size: .8125rem;
+  line-height: 1.6;
+}
+
+.event-source {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: .75rem;
+  text-decoration: none;
+}
+
+.event-source:hover { color: #168f87; text-decoration: underline; text-underline-offset: 3px; }
+
 .event-attention {
   flex-shrink: 0;
   margin-top: 2px;
   font-size: 0.75rem;
   color: var(--color-text-muted);
 }
+
+.event-attention-critical { color: #c2413b; }
+.event-attention-watch { color: #a56813; }
+.event-attention-info { color: #168f87; }
+
+.event-state {
+  margin-top: 20px;
+  padding: 20px 22px;
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+}
+
+.event-state strong { color: var(--color-text-primary); font-size: .9375rem; }
+.event-state p { margin: 7px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.6; }
+.event-state button { margin-top: 12px; padding: 7px 11px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; font: inherit; font-size: .8125rem; }
+.event-state-quiet { border-color: color-mix(in srgb, #168f87 35%, var(--color-border)); }
+.event-state-error { border-color: color-mix(in srgb, #c2413b 35%, var(--color-border)); }
+.event-provider-note, .event-fetched { margin: 10px 0 0; color: var(--color-text-muted); font-size: .75rem; }
+.event-provider-note { color: #a56813; }
 
 .footer {
   margin-top: 64px;

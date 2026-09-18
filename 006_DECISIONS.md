@@ -164,6 +164,22 @@ Rules:
 
 ---
 
+## DEC-014 — Chain Events Are Position-relevant and Official-first
+
+The Chain Events section is a compact decision-support feed, not a general DeFi news reader.
+
+Rules:
+
+- Query only the supported protocols found in the connected wallet's current positions
+- If no supported position exists, do not call upstream event providers in the current MVP
+- Include only security, pause/deprecation, upgrade, and material governance events
+- Prefer official governance, verified onchain governance, and official repositories; every item must link to its original source
+- Use short HTTP requests with a 10-minute server cache and a 5-minute visible-page refresh; do not keep an SSE connection open
+- One unavailable provider must not hide verified results from other providers
+- Governance approval must not be described as onchain execution unless execution is independently verified
+
+---
+
 # Pending Decisions
 
 Decide only when the related work begins:
