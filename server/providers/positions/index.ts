@@ -1,15 +1,21 @@
 import { aaveEthereumPositionAdapter, sparkLendPositionAdapter } from './aaveV3'
 import { compoundPositionAdapter } from './compound'
+import { fluidPositionAdapter } from './fluid'
+import { maplePositionAdapter } from './maple'
 import { morphoPositionAdapter } from './morpho'
 import { sparkSavingsPositionAdapter } from './sparkSavings'
 import type { ProtocolPositionResult } from './types'
+import { yearnPositionAdapter } from './yearn'
 
 const adapters = [
   aaveEthereumPositionAdapter,
   sparkLendPositionAdapter,
   sparkSavingsPositionAdapter,
   compoundPositionAdapter,
-  morphoPositionAdapter
+  morphoPositionAdapter,
+  fluidPositionAdapter,
+  maplePositionAdapter,
+  yearnPositionAdapter
 ]
 
 export async function getEthereumProtocolPositions (address: string): Promise<ProtocolPositionResult> {

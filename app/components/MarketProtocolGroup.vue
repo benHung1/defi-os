@@ -20,6 +20,8 @@ const props = defineProps<{
   sourceLabel: string
   sourceTone: 'official' | 'onchain' | 'third-party' | 'mixed'
   sourceHelp: string
+  positionSupportLabel: '支援持倉辨識' | '僅市場資料'
+  positionSupportHelp: string
 }>()
 
 const PRODUCT_PAGE_SIZE = 5
@@ -35,6 +37,11 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
     <summary class="summary">
       <span class="protocol">{{ protocol }}</span>
       <span class="summary-meta">
+        <span
+          class="position-support"
+          :class="{ supported: positionSupportLabel === '支援持倉辨識' }"
+          :title="positionSupportHelp"
+        >{{ positionSupportLabel }}</span>
         <span class="source" :class="`source-${sourceTone}`" :title="sourceHelp">{{ sourceLabel }}</span>
         <span class="tvl">所列 TVL {{ tvlLabel }}</span>
         <span class="count">{{ rows.length }} 個產品</span>
@@ -123,6 +130,23 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
   border-radius: 999px;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+.position-support {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.position-support.supported {
+  border-color: color-mix(in srgb, #168f87 38%, var(--color-border));
+  background: color-mix(in srgb, #168f87 10%, var(--color-surface));
+  color: #168f87;
 }
 
 .source::before {

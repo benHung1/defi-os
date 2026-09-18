@@ -80,7 +80,7 @@ Position fields include:
 - Current APR or APY without converting between the two
 - Verification source and timestamp
 
-Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, and Morpho Blue on Ethereum. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
+Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, and Yearn on Ethereum. Fluid and Maple are read through their ERC-4626 vault contracts; Yearn vault discovery comes from the official registry API and balances are valued onchain. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
 
 ---
 

@@ -144,7 +144,7 @@ Rules:
 - Wallet assets and protocol positions are read from public onchain data
 - Each supported protocol has a protocol-specific position adapter
 - Indexers may discover positions, but balances must be read from or verified against protocol contracts
-- Initial Ethereum coverage is Aave, Spark, Compound V3, and Morpho Blue
+- Initial Ethereum coverage is Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, and Yearn
 - Unsupported or partially unavailable positions must not be represented as zero
 - The product remains a DeFi decision companion, not a general wallet or exchange portfolio tracker
 

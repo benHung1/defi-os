@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await getPortfolio(address)
+    return await getPortfolio(address.toLowerCase())
   } catch (error) {
     console.error('[api/portfolio] portfolio lookup failed', {
       address,

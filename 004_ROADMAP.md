@@ -80,7 +80,7 @@ Allow users to connect a wallet read-only and inspect supported DeFi positions.
 - Read-only wallet connection
 - Public-address asset lookup
 - Protocol-position adapter interface
-- Aave, Spark, Compound V3, and Morpho Blue position reads on Ethereum
+- Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, and Yearn position reads on Ethereum
 - Onchain position verification
 - Allocation by asset
 - Allocation by protocol

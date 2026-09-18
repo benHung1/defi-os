@@ -97,6 +97,14 @@ interface UsdcMarketDashboardResponse {
 
 const MARKET_ALL_PRODUCT_LIMIT = 100
 const MARKET_INITIAL_PROTOCOL_LIMIT = 5
+const ETHEREUM_POSITION_PROTOCOLS = new Set(['Aave', 'Spark', 'Morpho Blue'])
+const ETHEREUM_USDC_POSITION_PROTOCOLS = new Set(['Compound', 'Fluid', 'Maple', 'Yearn'])
+
+function supportsWalletPosition (opportunity: YieldOpportunity): boolean {
+  if (opportunity.chain !== 'Ethereum') return false
+  return ETHEREUM_POSITION_PROTOCOLS.has(opportunity.protocol)
+    || (opportunity.asset === 'USDC' && ETHEREUM_USDC_POSITION_PROTOCOLS.has(opportunity.protocol))
+}
 
 const dashboard: Dashboard = {
   greeting: '早安',
@@ -372,6 +380,7 @@ const marketGroups = computed(() => {
     protocol: string
     totalTvlUsd: number
     sourceKinds: Set<DataSourceKind>
+    supportsWalletPosition: boolean
     rows: Array<{
       key: string
       rank: number
@@ -405,10 +414,12 @@ const marketGroups = computed(() => {
       protocol: opportunity.protocol,
       totalTvlUsd: 0,
       sourceKinds: new Set<DataSourceKind>(),
+      supportsWalletPosition: false,
       rows: []
     }
     group.totalTvlUsd += opportunity.tvlUsd ?? 0
     group.sourceKinds.add(opportunity.sourceKind)
+    group.supportsWalletPosition ||= supportsWalletPosition(opportunity)
     group.rows.push({
       key: `${opportunity.protocol}:${opportunity.product}:${opportunity.sourcePoolId ?? ''}`,
       rank: index + 1,
@@ -445,6 +456,12 @@ const marketGroups = computed(() => {
           : group.sourceKinds.has('ONCHAIN')
             ? 'onchain' as const
             : 'third-party' as const,
+      positionSupportLabel: group.supportsWalletPosition
+        ? '支援持倉辨識' as const
+        : '僅市場資料' as const,
+      positionSupportHelp: group.supportsWalletPosition
+        ? '已接入唯讀持倉 adapter；連接錢包後會從 Ethereum 鏈上核對實際部位。'
+        : '目前提供市場排名資料，尚未接入此協議的錢包持倉辨識。',
       highestRate: Math.max(...group.rows.map(row => row.rate))
     }))
     .sort((left, right) => {
@@ -867,6 +884,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
               :source-label="group.sourceLabel"
               :source-tone="group.sourceTone"
               :source-help="group.sourceHelp"
+              :position-support-label="group.positionSupportLabel"
+              :position-support-help="group.positionSupportHelp"
             />
           </div>
 
