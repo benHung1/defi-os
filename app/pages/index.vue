@@ -669,24 +669,46 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             :note="item.note"
           />
         </div>
-        <div v-if="isWalletConnected && !portfolioPending && walletPositions.length > 0" class="position-list">
-          <article
-            v-for="position in walletPositions"
-            :key="`${position.protocol}:${position.product}:${position.kind}:${position.asset}`"
-            class="position-card"
-          >
+        <div
+          v-if="isWalletConnected && !portfolioPending && !portfolioError && walletPositions.length > 0"
+          class="portfolio-position-block"
+        >
+          <div class="position-list-head">
             <div>
-              <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
-              <strong>{{ position.product }}</strong>
-              <small>{{ position.verification === 'ONCHAIN' ? '鏈上直接讀取' : '官方索引發現 · 鏈上核對' }}</small>
+              <h3>DeFi 部位明細</h3>
+              <p>已辨識並完成鏈上核對的協議產品</p>
             </div>
-            <div class="position-values">
-              <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
-              <span>{{ formatPositionValue(position.valueUsd) }} · {{ formatPositionRate(position.rate, position.rateType) }}</span>
-            </div>
-          </article>
+            <span>{{ walletPositions.length }} 個部位</span>
+          </div>
+          <div class="position-list">
+            <article
+              v-for="position in walletPositions"
+              :key="`${position.protocol}:${position.product}:${position.kind}:${position.asset}`"
+              class="position-card"
+            >
+              <div>
+                <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
+                <strong>{{ position.product }}</strong>
+                <small>{{ position.verification === 'ONCHAIN' ? '鏈上直接讀取' : '官方索引發現 · 鏈上核對' }}</small>
+              </div>
+              <div class="position-values">
+                <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
+                <span>{{ formatPositionValue(position.valueUsd) }} · {{ formatPositionRate(position.rate, position.rateType) }}</span>
+              </div>
+            </article>
+          </div>
         </div>
-        <div v-else class="wallet-empty-state">
+        <div
+          v-else-if="isWalletConnected && !portfolioPending && !portfolioError"
+          class="wallet-empty-state"
+        >
+          <div class="wallet-empty-icon" aria-hidden="true">✓</div>
+          <div>
+            <strong>目前未找到已支援的 DeFi 部位</strong>
+            <p>錢包資產已完成更新；目前沒有偵測到已接入協議中的供應、借款、抵押或 Vault 部位。</p>
+          </div>
+        </div>
+        <div v-else-if="!isWalletConnected" class="wallet-empty-state">
           <div class="wallet-empty-icon" aria-hidden="true">◎</div>
           <div>
             <strong>尚未連接錢包</strong>
@@ -1228,6 +1250,33 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   display: grid;
   gap: 10px;
   margin-top: 14px;
+}
+
+.portfolio-position-block { margin-top: 24px; }
+
+.position-list-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.position-list-head h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+}
+
+.position-list-head p {
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+  font-size: .75rem;
+}
+
+.position-list-head > span {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: .75rem;
 }
 
 .position-card {
