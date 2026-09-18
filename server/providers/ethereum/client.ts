@@ -22,10 +22,14 @@ async function ethereumRpc (method: string, params: unknown[]): Promise<unknown>
   return payload.result
 }
 
-export async function ethCall (to: string, data: string): Promise<bigint> {
+export async function ethCallData (to: string, data: string): Promise<string> {
   const result = await ethereumRpc('eth_call', [{ to, data }, 'latest'])
-  if (typeof result !== 'string' || !/^0x[0-9a-f]+$/i.test(result)) throw new Error('Ethereum RPC eth_call returned an invalid result')
-  return BigInt(result)
+  if (typeof result !== 'string' || !/^0x[0-9a-f]*$/i.test(result)) throw new Error('Ethereum RPC eth_call returned an invalid result')
+  return result
+}
+
+export async function ethCall (to: string, data: string): Promise<bigint> {
+  return BigInt(await ethCallData(to, data))
 }
 
 export async function ethGetBalance (address: string): Promise<bigint> {

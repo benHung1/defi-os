@@ -72,23 +72,24 @@ The screen should communicate the DeFi OS product direction before real integrat
 
 ## Goal
 
-Allow users to manually represent their DeFi positions.
+Allow users to connect a wallet read-only and inspect supported DeFi positions.
 
 ## Deliverables
 
 - Position data model
-- Add position
-- Edit position
-- Delete position
+- Read-only wallet connection
+- Public-address asset lookup
+- Protocol-position adapter interface
+- Aave, Spark, Compound V3, and Morpho Blue position reads on Ethereum
+- Onchain position verification
 - Allocation by asset
 - Allocation by protocol
 - Allocation by chain
-- Local persistence
 - Empty and error states
 
 ## Decision Required Before Starting
 
-Choose the MVP portfolio persistence method.
+Decide whether later multi-chain caching requires server persistence. The initial read-only implementation does not require a database.
 
 ---
 
@@ -195,7 +196,6 @@ Do not begin major future features until the core product is validated.
 
 Possible future directions:
 
-- Wallet integration
 - Notifications
 - Historical trends
 - More data providers

@@ -78,6 +78,8 @@ Portfolio persistence will be decided before Portfolio implementation.
 
 ## DEC-007 — No Wallet in MVP
 
+**Superseded by DEC-012.**
+
 Portfolio data is entered manually in the MVP.
 
 Wallet integration is deferred.
@@ -129,6 +131,22 @@ Rules:
 - Comparison may show factual rate deltas for comparable candidates only
 - Higher yield alone must not set Hero attention/warning state
 - This does not authorize recommendation, MOVE/HOLD, safety scoring, or a Decision Engine
+
+---
+
+## DEC-012 — Read-only Wallet and Protocol-specific Position Adapters
+
+The Portfolio uses a connected wallet only to obtain a public address.
+
+Rules:
+
+- Never request a transaction, Token Approval, arbitrary signature, seed phrase, or private key
+- Wallet assets and protocol positions are read from public onchain data
+- Each supported protocol has a protocol-specific position adapter
+- Indexers may discover positions, but balances must be read from or verified against protocol contracts
+- Initial Ethereum coverage is Aave, Spark, Compound V3, and Morpho Blue
+- Unsupported or partially unavailable positions must not be represented as zero
+- The product remains a DeFi decision companion, not a general wallet or exchange portfolio tracker
 
 ---
 

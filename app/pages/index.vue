@@ -533,22 +533,41 @@ const hero = computed(() => {
 
   const portfolio = walletPortfolio.value
   const assetCount = portfolio.summary.assetCount
+  const positionCount = portfolio.positions.length
   return {
     level: 'healthy' as const,
     question: '今天有什麼需要我注意？',
-    headline: assetCount > 0 ? `已在 Ethereum 找到 ${assetCount} 種主要資產` : '目前未找到已支援的主要資產',
-    statement: '資產餘額已由公開地址讀取；協議部位辨識將在下一階段接入。',
+    headline: positionCount > 0
+      ? `已找到 ${portfolio.summary.protocolCount} 個協議、${positionCount} 個鏈上部位`
+      : assetCount > 0 ? `已在 Ethereum 找到 ${assetCount} 種主要資產` : '目前未找到已支援的主要資產或 DeFi 部位',
+    statement: positionCount > 0
+      ? '協議部位已由官方合約核對；下方可查看目前供應、借款、抵押或 Vault 部位。'
+      : '資產餘額與已支援協議皆已完成查詢。',
     evidence: [
       `地址 ${walletAddress.value?.slice(0, 6)}…${walletAddress.value?.slice(-4)}`,
-      portfolio.meta.partial ? '部分資料暫時不可用' : '主要資產餘額已完成更新',
-      '目前尚未產生協議收益比較'
+      portfolio.meta.partial ? '部分協議或資產資料暫時不可用' : '錢包資產與協議部位已完成更新',
+      positionCount > 0 ? '部位數值已經鏈上讀取或核對' : '目前沒有可供比較的已支援協議部位'
     ]
   }
 })
 
 const isHealthy = computed(() => hero.value.level === 'healthy')
 const walletAssets = computed(() => walletPortfolio.value?.chains.flatMap(chain => chain.assets) ?? [])
+const walletPositions = computed(() => walletPortfolio.value?.positions ?? [])
 const walletUsdc = computed(() => walletAssets.value.find(asset => asset.symbol === 'USDC')?.amount ?? 0)
+const usdcPositions = computed(() => walletPositions.value.filter(position => position.asset.toUpperCase() === 'USDC'))
+const protocolNames = computed(() => [...new Set(walletPositions.value.map(position => position.protocol))])
+const positionKindLabel = (kind: string): string => ({
+  SUPPLY: '供應', BORROW: '借款', COLLATERAL: '抵押', VAULT: 'Vault'
+})[kind] ?? kind
+const formatPositionAmount = (amount: number, asset: string): string =>
+  `${amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${asset}`
+const formatPositionValue = (value: number | null): string => value === null
+  ? '美元價值暫缺'
+  : `US$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
+  ? '利率不適用'
+  : `${rate.toFixed(2)}% ${rateType}`
 const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   const portfolio = walletPortfolio.value
   if (!portfolio) return []
@@ -559,7 +578,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   return [
     { label: '投資組合價值', value: totalValue, note: 'Ethereum 主要資產合計' },
     { label: '資產', value: `${portfolio.summary.assetCount} 種`, note: symbols },
-    { label: '協議', value: `${portfolio.summary.protocolCount} 個`, note: '協議部位尚未接入' },
+    { label: '協議', value: `${portfolio.summary.protocolCount} 個`, note: protocolNames.value.join('、') || '未找到已支援協議部位' },
     { label: '鏈', value: `${portfolio.summary.chainCount} 條`, note: portfolio.summary.chainCount ? 'Ethereum' : '未找到資產' }
   ]
 })
@@ -641,6 +660,23 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             :note="item.note"
           />
         </div>
+        <div v-if="isWalletConnected && !portfolioPending && walletPositions.length > 0" class="position-list">
+          <article
+            v-for="position in walletPositions"
+            :key="`${position.protocol}:${position.product}:${position.kind}:${position.asset}`"
+            class="position-card"
+          >
+            <div>
+              <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
+              <strong>{{ position.product }}</strong>
+              <small>{{ position.verification === 'ONCHAIN' ? '鏈上直接讀取' : '官方索引發現 · 鏈上核對' }}</small>
+            </div>
+            <div class="position-values">
+              <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
+              <span>{{ formatPositionValue(position.valueUsd) }} · {{ formatPositionRate(position.rate, position.rateType) }}</span>
+            </div>
+          </article>
+        </div>
         <div v-else class="wallet-empty-state">
           <div class="wallet-empty-icon" aria-hidden="true">◎</div>
           <div>
@@ -672,12 +708,29 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           </div>
         </div>
 
-        <div v-else class="wallet-empty-state compact">
+        <div v-else-if="usdcPositions.length === 0" class="wallet-empty-state compact">
           <div class="wallet-empty-icon" aria-hidden="true">$</div>
           <div>
             <strong>{{ walletUsdc > 0 ? `錢包持有 ${walletUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC` : '未找到 Ethereum USDC 餘額' }}</strong>
-            <p>目前只完成錢包資產讀取；尚未偵測 Aave、Spark、Compound 或 Morpho Blue 協議部位，因此不顯示虛構收益比較。</p>
+            <p>已查詢 Aave、Spark、Compound 與 Morpho Blue；目前沒有可供比較的 USDC 協議部位。</p>
           </div>
+        </div>
+        <div v-else class="position-list usdc-position-list">
+          <article
+            v-for="position in usdcPositions"
+            :key="`usdc:${position.protocol}:${position.product}:${position.kind}`"
+            class="position-card"
+          >
+            <div>
+              <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
+              <strong>{{ position.product }}</strong>
+              <small>{{ position.isCollateral ? '目前作為抵押品' : '已完成鏈上部位核對' }}</small>
+            </div>
+            <div class="position-values">
+              <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
+              <span>{{ formatPositionRate(position.rate, position.rateType) }}</span>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -1159,6 +1212,30 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   font-size: .8125rem;
 }
 .inline-retry:hover { border-color: var(--color-text-muted); }
+
+.position-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.position-card {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.position-card strong { color: var(--color-text-primary); }
+.position-card small { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: .75rem; }
+.position-meta { margin: 0 0 5px; color: #168f87; font-size: .75rem; }
+.position-values { flex-shrink: 0; text-align: right; }
+.position-values span { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: .75rem; }
+.usdc-position-list { margin-top: 20px; }
 .wallet-empty-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border: 1px solid color-mix(in srgb, #168f87 48%, var(--color-border)); border-radius: 50%; color: #168f87; font-weight: 700; }
 
 .market-filter-actions {
@@ -1554,6 +1631,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   .header :deep(.connect-button),
   .header :deep(.setup-button) { padding: 8px 10px; }
   .portfolio-section-head { flex-direction: column; }
+  .position-card { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .position-values { text-align: left; }
   .market-tools { align-items: stretch; flex-direction: column; }
   .market-search { min-width: 100%; }
   .market-sort-controls { flex-wrap: wrap; }

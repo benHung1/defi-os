@@ -57,27 +57,30 @@ It must not become a full analytics terminal.
 
 ## 2. Portfolio
 
-Users can manually manage their DeFi positions.
+Users connect a wallet in read-only mode so DeFi OS can inspect public onchain data.
 
 The MVP should support:
 
-- Add a position
-- Edit a position
-- Delete a position
+- Connect and disconnect a wallet without requesting signatures or approvals
+- Read supported wallet assets from the public address
+- Detect supported protocol positions through protocol-specific adapters
+- Verify position balances against protocol contracts
 - View allocation by asset
 - View allocation by protocol
 - View allocation by chain
 
-Suggested position fields:
+Position fields include:
 
 - Asset
 - Protocol
 - Chain
 - Position type
 - Amount
-- Optional notes
+- Current USD value when available
+- Current APR or APY without converting between the two
+- Verification source and timestamp
 
-Wallet connection is not required.
+Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, and Morpho Blue on Ethereum. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
 
 ---
 
@@ -200,7 +203,6 @@ The product must remain understandable even when an external provider fails.
 
 The MVP does not include:
 
-- Wallet Connect
 - Automated transactions
 - Notifications
 - Mobile application
