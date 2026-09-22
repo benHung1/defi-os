@@ -231,7 +231,7 @@ The MVP does not include:
 DeFi OS v1 is complete when:
 
 1. The Dashboard provides a clear daily overview
-2. Users can manually manage portfolio positions
+2. Users can connect a wallet read-only and inspect supported, onchain-verified portfolio positions
 3. Users can view protocol details
 4. Users can browse a simplified Market view
 5. Users can view relevant Chain Events

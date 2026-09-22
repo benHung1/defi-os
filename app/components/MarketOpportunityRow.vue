@@ -9,6 +9,7 @@ defineProps<{
   sourceLabel: string
   fetchedAtLabel: string
   rateHelp: string
+  detailUrl: string
   productUrl?: string
 }>()
 </script>
@@ -24,12 +25,13 @@ defineProps<{
         <span>更新 {{ fetchedAtLabel }}</span>
       </p>
       <p class="links">
+        <NuxtLink :to="detailUrl">查看詳情</NuxtLink>
         <a
           v-if="productUrl"
           :href="productUrl"
           target="_blank"
           rel="noopener noreferrer"
-        >查看產品 ↗</a>
+        >產品連結 ↗</a>
       </p>
     </div>
 

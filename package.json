@@ -9,7 +9,7 @@
     "generate": "nuxt generate",
     "lint": "eslint .",
     "preview": "nuxt preview",
-    "test:decision": "node --test tests/dailyDecision.test.ts",
+    "test:decision": "node --test tests/dailyDecision.test.ts tests/productDetail.test.ts",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },

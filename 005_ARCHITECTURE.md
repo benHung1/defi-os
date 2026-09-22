@@ -51,3 +51,14 @@ Services
 Repositories / Providers
        ↓
 Local Persistence / External APIs
+```
+
+Product detail pages use an encoded product identity in the route and resolve current observations through the existing internal Market API/service layer. They do not maintain a second product dataset or require a database.
+
+The detail page may combine:
+
+- current Market observation
+- connected wallet positions from the existing Portfolio adapters
+- official-first Chain Events
+
+Missing Market or Event data remains unavailable instead of being replaced with zero. A Portfolio position can still be inspected when its matching Market observation is temporarily unavailable.

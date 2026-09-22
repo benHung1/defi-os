@@ -121,12 +121,14 @@ Do not create duplicate documentation systems.
 
 ## DEC-011 — Personal USDC Comparison Uses Real Decision Candidates
 
-Personal USDC market comparison uses real Decision API candidates while the current user position remains a temporary mock/fixture until the Portfolio Sprint.
+**The temporary-position portion is superseded by DEC-012.**
+
+Personal USDC market comparison uses real Decision API candidates. During the earlier pre-Portfolio slice the current position was a temporary fixture; it is now supplied by the read-only wallet and protocol adapters defined in DEC-012.
 
 Rules:
 
 - Decision Candidate market data comes from `GET /api/decision/usdc`
-- Current position identity may remain a temporary fixture and must not be presented as wallet-derived
+- Current position identity must come from a supported, verified Portfolio position
 - Numeric personal rate comparison (higher/lower, sort, delta) is allowed only when `candidate.rateType === currentPositionRate.rateType`; do not convert APR↔APY
 - Comparison may show factual rate deltas for comparable candidates only
 - Higher yield alone must not set Hero attention/warning state
@@ -194,6 +196,22 @@ Rules:
 - No supported position is a neutral state, not proof that a portfolio is healthy
 - Every conclusion must expose its reasons and lead to the relevant evidence section
 - AI may improve wording in a future version, but it must not override the deterministic status or invent evidence
+
+---
+
+## DEC-016 — Product Detail Is a Thin Evidence Layer
+
+The Product detail page completes the path from a Dashboard conclusion to its underlying evidence without expanding the homepage or duplicating a full analytics terminal.
+
+Rules:
+
+- Market, Portfolio, and personal comparison entries may navigate to the same internal Product detail route
+- Reuse the existing Market, Portfolio, and Chain Event services; do not create a second product dataset
+- Show current rate, rate type, TVL, source, fetched time, related wallet positions, and official-first events when available
+- A missing Market observation must not hide an otherwise verified wallet position
+- Missing values remain unavailable and are never displayed as zero
+- Keep the product link and provider source link visible, without claiming a third-party link is official
+- The page provides evidence and context only; it does not execute transactions or issue MOVE/HOLD recommendations
 
 ---
 

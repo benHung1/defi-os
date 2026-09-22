@@ -7,6 +7,7 @@ import type {
   ChainEventType
 } from '../../shared/types/chainEvents'
 import { evaluateDailyDecision, type DailyDecisionInput } from '../utils/dailyDecision'
+import { productDetailPath } from '../utils/productDetail'
 
 interface SummaryItem {
   label: string
@@ -401,6 +402,7 @@ const marketGroups = computed(() => {
       sourceLabel: string
       fetchedAtLabel: string
       rateHelp: string
+      detailUrl: string
       productUrl?: string
     }>
   }>()
@@ -440,6 +442,13 @@ const marketGroups = computed(() => {
       sourceLabel: `資料來源：${opportunitySourceLabel(opportunity)}`,
       fetchedAtLabel: formatFetchedAt(opportunity.fetchedAt),
       rateHelp: rateHelp(opportunity.rateType),
+      detailUrl: productDetailPath({
+        protocol: opportunity.protocol,
+        product: opportunity.product,
+        chain: opportunity.chain,
+        asset: opportunity.asset,
+        sourcePoolId: opportunity.sourcePoolId
+      }),
       productUrl: opportunity.productUrl
     })
     groups.set(opportunity.protocol, group)
@@ -764,6 +773,13 @@ const formatPositionValue = (value: number | null): string => value === null
 const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
   ? '利率不適用'
   : `${rate.toFixed(2)}% ${rateType}`
+const positionDetailPath = (position: PortfolioPosition): string => productDetailPath({
+  protocol: position.protocol,
+  product: position.product,
+  chain: position.chain,
+  asset: position.asset,
+  sourcePoolId: position.contractAddress
+})
 const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   const portfolio = walletPortfolio.value
   if (!portfolio) return []
@@ -884,6 +900,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
                 <p class="position-meta">{{ position.protocol }} · {{ positionKindLabel(position.kind) }}</p>
                 <strong>{{ position.product }}</strong>
                 <small>{{ position.verification === 'ONCHAIN' ? '鏈上直接讀取' : '官方索引發現 · 鏈上核對' }}</small>
+                <NuxtLink class="position-detail-link" :to="positionDetailPath(position)">查看產品詳情</NuxtLink>
               </div>
               <div class="position-values">
                 <strong>{{ formatPositionAmount(position.amount, position.asset) }}</strong>
@@ -1017,13 +1034,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             >
               <div>
                 <p>{{ candidate.protocol }} · {{ opportunityTypeLabel(candidate.opportunityType) }}</p>
-                <a
-                  v-if="candidate.productUrl"
-                  :href="candidate.productUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >{{ candidate.product }} ↗</a>
-                <strong v-else>{{ candidate.product }}</strong>
+                <NuxtLink :to="productDetailPath({ protocol: candidate.protocol, product: candidate.product, chain: candidate.chain, asset: candidate.asset, sourcePoolId: candidate.sourcePoolId })">
+                  {{ candidate.product }}
+                </NuxtLink>
+                <a v-if="candidate.productUrl" class="candidate-official-link" :href="candidate.productUrl" target="_blank" rel="noopener noreferrer">產品連結 ↗</a>
               </div>
               <dl>
                 <div>
@@ -1683,6 +1697,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 
 .position-card strong { color: var(--color-text-primary); }
 .position-card small { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: .75rem; }
+.position-detail-link { display: inline-flex; margin-top: 9px; color: #168f87; font-size: .75rem; font-weight: 650; text-decoration: none; }
+.position-detail-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .position-meta { margin: 0 0 5px; color: #168f87; font-size: .75rem; }
 .position-values { flex-shrink: 0; text-align: right; }
 .position-values span { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: .75rem; }
@@ -1969,6 +1985,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 .usdc-candidate-row p { margin: 0 0 5px; color: var(--color-text-muted); font-size: .75rem; }
 .usdc-candidate-row a, .usdc-candidate-row strong { color: var(--color-text-primary); font-size: .875rem; font-weight: 600; text-decoration: none; }
 .usdc-candidate-row a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.usdc-candidate-row .candidate-official-link { display: inline-flex; margin-left: 10px; color: var(--color-text-muted); font-size: .75rem; font-weight: 500; }
 .usdc-candidate-row dl { display: grid; grid-template-columns: repeat(2, minmax(100px, auto)); gap: 22px; margin: 0; text-align: right; }
 .usdc-candidate-row dd { margin: 5px 0 0; white-space: nowrap; color: #168f87; font-size: .875rem; font-weight: 650; }
 .usdc-comparison-state { margin-top: 10px; padding: 16px 18px; border: 1px dashed var(--color-border); border-radius: 12px; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }

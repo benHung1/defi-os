@@ -10,6 +10,7 @@ interface MarketRow {
   sourceLabel: string
   fetchedAtLabel: string
   rateHelp: string
+  detailUrl: string
   productUrl?: string
 }
 
@@ -62,6 +63,7 @@ watch(() => props.rows, () => { visibleCount.value = PRODUCT_PAGE_SIZE })
         :source-label="row.sourceLabel"
         :fetched-at-label="row.fetchedAtLabel"
         :rate-help="row.rateHelp"
+        :detail-url="row.detailUrl"
         :product-url="row.productUrl"
       />
     </ul>

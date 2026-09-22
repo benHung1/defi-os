@@ -102,6 +102,8 @@ Allow users to understand an individual protocol.
 ## Deliverables
 
 - Protocol detail page
+- One-click navigation from Market, Portfolio, and personal comparisons
+- The user's related, onchain-verified position when connected
 - TVL
 - APR or APY
 - Source
@@ -109,6 +111,10 @@ Allow users to understand an individual protocol.
 - Missing-data handling
 - Relevant risk evidence
 - Related Chain Events
+
+## Guardrail
+
+The detail page is an evidence layer behind the Dashboard, not a second analytics terminal. It shows only the facts needed to understand a position or product and links to the original source.
 
 ## Decision Required Before Starting
 
