@@ -1,6 +1,7 @@
 export type PortfolioAssetKind = 'NATIVE' | 'ERC20'
 export type PortfolioPositionKind = 'SUPPLY' | 'BORROW' | 'COLLATERAL' | 'VAULT'
 export type PortfolioRateType = 'APR' | 'APY'
+export type PortfolioCoverageStatus = 'COMPLETE' | 'PARTIAL'
 
 export interface PortfolioAsset {
   symbol: string
@@ -54,5 +55,10 @@ export interface PortfolioResponse {
     priceSource: string
     partial: boolean
     warnings: string[]
+    coverage: {
+      balances: PortfolioCoverageStatus
+      positions: PortfolioCoverageStatus
+      prices: PortfolioCoverageStatus
+    }
   }
 }

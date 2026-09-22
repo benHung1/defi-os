@@ -1,14 +1,24 @@
 import type { PortfolioResponse } from '../../shared/types/portfolio'
 
 export const PORTFOLIO_DEMO_SCENARIO = 'aave-morpho-spark'
+export const PORTFOLIO_PARTIAL_DEMO_SCENARIO = 'partial-coverage'
 export const PORTFOLIO_DEMO_ADDRESS = '0x000000000000000000000000000000000000dEaD'
+export type PortfolioDemoScenario = typeof PORTFOLIO_DEMO_SCENARIO | typeof PORTFOLIO_PARTIAL_DEMO_SCENARIO
 
-export function isPortfolioDemoScenario (value: unknown): boolean {
-  return import.meta.dev && value === PORTFOLIO_DEMO_SCENARIO
+export function getPortfolioDemoScenario (value: unknown): PortfolioDemoScenario | null {
+  if (!import.meta.dev) return null
+  return value === PORTFOLIO_DEMO_SCENARIO || value === PORTFOLIO_PARTIAL_DEMO_SCENARIO ? value : null
 }
 
-export function createPortfolioDemo (fetchedAt = new Date().toISOString()): PortfolioResponse {
-  return {
+export function isPortfolioDemoScenario (value: unknown): boolean {
+  return getPortfolioDemoScenario(value) !== null
+}
+
+export function createPortfolioDemo (
+  fetchedAt = new Date().toISOString(),
+  scenario: PortfolioDemoScenario = PORTFOLIO_DEMO_SCENARIO
+): PortfolioResponse {
+  const portfolio: PortfolioResponse = {
     address: PORTFOLIO_DEMO_ADDRESS,
     chains: [{
       chain: 'Ethereum',
@@ -81,7 +91,24 @@ export function createPortfolioDemo (fetchedAt = new Date().toISOString()): Port
       positionSource: 'Development scenario fixture matching the production PortfolioResponse contract',
       priceSource: 'Development scenario fixture',
       partial: false,
-      warnings: []
+      warnings: [],
+      coverage: {
+        balances: 'COMPLETE',
+        positions: 'COMPLETE',
+        prices: 'COMPLETE'
+      }
     }
   }
+
+  if (scenario === PORTFOLIO_PARTIAL_DEMO_SCENARIO) {
+    portfolio.positions = portfolio.positions.filter(position => position.protocol !== 'Morpho Blue')
+    portfolio.summary.totalUsd = null
+    portfolio.summary.protocolCount = 2
+    portfolio.chains[0]!.totalUsd = null
+    portfolio.meta.partial = true
+    portfolio.meta.warnings = ['Morpho Blue positions unavailable']
+    portfolio.meta.coverage.positions = 'PARTIAL'
+  }
+
+  return portfolio
 }

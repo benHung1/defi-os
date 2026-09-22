@@ -554,7 +554,7 @@ Current Market source:
 Important unfinished areas:
 
 - periodic re-validation of public live-address samples when protocol contracts or APIs change;
-- error recovery, accessibility, responsive, and performance review;
+- accessibility, responsive, and performance review;
 - founder daily-use validation and removal of low-value elements.
 
 Next Product Task:
@@ -595,6 +595,14 @@ Automated adapter coverage currently includes Aave, SparkLend, Spark Savings, Co
 Fluid, Maple, Yearn V2/V3, Pareto, Midas, Dolomite, and Sentora. These tests use deterministic RPC/API responses
 to lock decimals, receipt-share conversion, underlying-asset conversion, rate type, valuation, zero-balance, and
 dust behavior. They do not replace the public-address live checks listed above.
+
+Portfolio partial-data acceptance can be inspected in development at:
+
+`http://localhost:3001/?demoPortfolio=partial-coverage`
+
+The Portfolio API reports balance, protocol-position, and USD-price coverage independently. A partial response
+keeps verified data visible, suppresses an unverified aggregate total, and must never describe an unavailable
+adapter as a zero balance. The Decision Hero remains in an unknown state until coverage is complete.
 
 ---
 

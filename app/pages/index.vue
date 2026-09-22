@@ -222,7 +222,7 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
-const { active: portfolioDemoActive } = usePortfolioDemo()
+const { active: portfolioDemoActive, scenario: portfolioDemoScenario } = usePortfolioDemo()
 const { address: walletAddress, isConnected: isWalletConnected } = useWalletSession()
 const { portfolio: walletPortfolio, pending: portfolioPending, error: portfolioError, refresh: refreshPortfolio } = usePortfolio()
 const route = useRoute()
@@ -796,6 +796,16 @@ const portfolioValueBreakdown = computed(() => {
   const defiValue = formatPositionValue(defiPositionTotalUsd.value)
   return `錢包資產 ${walletValue}\nDeFi 部位 ${defiValue}`
 })
+const incompletePortfolioScopes = computed(() => {
+  const coverage = walletPortfolio.value?.meta.coverage
+  if (!coverage) return []
+  return [
+    coverage.balances === 'PARTIAL' ? '錢包餘額' : null,
+    coverage.positions === 'PARTIAL' ? '協議部位' : null,
+    coverage.prices === 'PARTIAL' ? '美元估值' : null
+  ].filter((scope): scope is string => scope !== null)
+})
+const portfolioPositionsPartial = computed(() => walletPortfolio.value?.meta.coverage.positions === 'PARTIAL')
 const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
   ? '利率不適用'
   : `${rate.toFixed(2)}% ${rateType}`
@@ -811,7 +821,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   if (!portfolio) return []
   const symbols = walletAssets.value.map(asset => asset.symbol).join('、') || '未找到已支援資產'
   const totalValue = portfolio.summary.totalUsd === null
-    ? '價格不完整'
+    ? portfolio.meta.coverage.prices === 'PARTIAL' ? '估值不完整' : '資料不完整'
     : `US$${portfolio.summary.totalUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
   return [
     { label: '投資組合價值', value: totalValue, note: portfolioValueBreakdown.value },
@@ -848,7 +858,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
     <main class="content">
       <aside v-if="portfolioDemoActive" class="demo-notice" aria-label="開發測試資料">
         <strong>開發測試資料</strong>
-        <span>Aave、Morpho Blue、Spark 的示範部位；不是目前連接錢包的真實資產。</span>
+        <span>{{ portfolioDemoScenario === 'partial-coverage' ? '部分協議來源失敗的驗收情境；不是目前連接錢包的真實狀態。' : 'Aave、Morpho Blue、Spark 的示範部位；不是目前連接錢包的真實資產。' }}</span>
       </aside>
       <section
         class="hero"
@@ -918,6 +928,17 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             :note="item.note"
           />
         </div>
+        <aside
+          v-if="isWalletConnected && !portfolioPending && !portfolioError && walletPortfolio?.meta.partial"
+          class="coverage-notice"
+          role="status"
+        >
+          <div>
+            <strong>部分資料暫時無法完整核對</strong>
+            <p>{{ incompletePortfolioScopes.join('、') }}尚未完整；目前只顯示已成功讀取的資料，不能據此判定其餘部位為零。</p>
+          </div>
+          <button type="button" class="inline-retry" @click="refreshPortfolio">重新核對</button>
+        </aside>
         <div
           v-if="isWalletConnected && !portfolioPending && !portfolioError && walletPositions.length > 0"
           class="portfolio-position-block"
@@ -954,8 +975,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         >
           <div class="wallet-empty-icon" aria-hidden="true">✓</div>
           <div>
-            <strong>目前未找到已支援的 DeFi 部位</strong>
-            <p>錢包資產已完成更新；目前沒有偵測到已接入協議中的供應、借款、抵押或 Vault 部位。</p>
+            <strong>{{ portfolioPositionsPartial ? '尚無法完整確認 DeFi 部位' : '目前未找到已支援的 DeFi 部位' }}</strong>
+            <p>{{ portfolioPositionsPartial ? '部分協議來源暫時無法取得；目前沒有讀到部位，不代表你的部位為零。請稍後重新核對。' : '錢包資產已完成更新；目前沒有偵測到已接入協議中的供應、借款、抵押或 Vault 部位。' }}</p>
           </div>
         </div>
         <div v-else-if="!isWalletConnected" class="wallet-empty-state">
@@ -1000,12 +1021,18 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         <div v-else-if="comparableUsdcPositions.length === 0" class="wallet-empty-state compact">
           <div class="wallet-empty-icon" aria-hidden="true">$</div>
           <div>
-            <strong>{{ walletUsdc > 0 ? `錢包持有 ${walletUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC` : '未找到 Ethereum USDC 餘額' }}</strong>
-            <p>目前沒有已辨識的 USDC 供應或 Vault 部位；錢包現貨不會被當成 DeFi 收益部位比較。</p>
+            <strong>{{ portfolioPositionsPartial ? '尚無法完整確認 USDC DeFi 部位' : walletUsdc > 0 ? `錢包持有 ${walletUsdc.toLocaleString('en-US', { maximumFractionDigits: 2 })} USDC` : '未找到 Ethereum USDC 餘額' }}</strong>
+            <p>{{ portfolioPositionsPartial ? '部分協議來源暫時無法取得，因此目前不能判定你沒有 USDC 收益部位。' : '目前沒有已辨識的 USDC 供應或 Vault 部位；錢包現貨不會被當成 DeFi 收益部位比較。' }}</p>
           </div>
         </div>
 
         <div v-else-if="selectedUsdcPosition" class="usdc-comparison">
+          <aside v-if="portfolioPositionsPartial" class="coverage-notice compact" role="status">
+            <div>
+              <strong>USDC 部位可能不完整</strong>
+              <p>部分協議來源暫時無法取得；以下只比較已成功核對的部位。</p>
+            </div>
+          </aside>
           <div class="usdc-position-picker">
             <label for="usdc-position-select">
               <span>目前比較部位</span>
@@ -1741,6 +1768,21 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 .wallet-empty-state.compact { min-height: 96px; }
 .wallet-empty-state strong { color: var(--color-text-primary); font-size: .9375rem; }
 .wallet-empty-state p { margin: 6px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.55; }
+.coverage-notice {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #d79b31 45%, var(--color-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, #d79b31 8%, var(--color-surface));
+}
+.coverage-notice strong { color: var(--color-text-primary); font-size: .875rem; }
+.coverage-notice p { margin: 4px 0 0; color: var(--color-text-muted); font-size: .8125rem; line-height: 1.5; }
+.coverage-notice .inline-retry { flex: 0 0 auto; margin-top: 0; }
+.coverage-notice.compact { margin-bottom: 14px; padding: 12px 14px; }
 .inline-retry {
   margin-top: 12px;
   padding: 7px 12px;
@@ -2263,6 +2305,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   .header :deep(.connect-button),
   .header :deep(.setup-button) { padding: 8px 10px; }
   .portfolio-section-head { flex-direction: column; }
+  .coverage-notice { align-items: flex-start; flex-direction: column; }
   .position-card { align-items: flex-start; flex-direction: column; gap: 12px; }
   .position-values { text-align: left; }
   .usdc-position-picker { align-items: stretch; flex-direction: column; gap: 10px; }

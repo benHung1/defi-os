@@ -3,7 +3,7 @@ import { createPortfolioDemo } from '../utils/portfolioDemo'
 
 export function usePortfolio() {
   const { address } = useWalletSession()
-  const { active: demoActive } = usePortfolioDemo()
+  const { active: demoActive, scenario: demoScenario } = usePortfolioDemo()
   const portfolio = ref<PortfolioResponse | null>(null)
   const pending = ref(false)
   const error = ref<string | null>(null)
@@ -20,7 +20,7 @@ export function usePortfolio() {
     }
 
     if (demoActive.value) {
-      portfolio.value = createPortfolioDemo()
+      portfolio.value = createPortfolioDemo(undefined, demoScenario.value ?? undefined)
       pending.value = false
       error.value = null
       return
