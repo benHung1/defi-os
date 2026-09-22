@@ -26,11 +26,18 @@ export interface ChainEventProviderMeta {
   fetchedAt?: string
 }
 
+export interface ChainEventProtocolCoverage {
+  protocol: string
+  status: 'supported' | 'unavailable'
+  providers: string[]
+}
+
 export interface ChainEventResponse {
   data: ChainEventRecord[]
   meta: {
     fetchedAt: string
     providers: ChainEventProviderMeta[]
+    coverage: ChainEventProtocolCoverage[]
     servedFromCache: boolean
     requestedProtocols: string[]
     refreshIntervalSeconds: number

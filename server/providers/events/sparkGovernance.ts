@@ -1,6 +1,6 @@
 import type { ChainEventRecord } from '../../../shared/types/chainEvents'
-import { ProviderError } from '../errors'
-import { detectEventAssets, isRecentTimestamp } from './eventUtils'
+import { ProviderError } from '../errors.ts'
+import { detectEventAssets, isRecentTimestamp } from './eventUtils.ts'
 
 const PROVIDER_NAME = 'Spark governance spells'
 const COMMITS_URL = 'https://api.github.com/repos/sparkdotfi/spark-spells/commits?path=archive&per_page=5'

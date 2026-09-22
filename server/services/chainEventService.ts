@@ -3,17 +3,16 @@ import type {
   ChainEventRecord,
   ChainEventResponse
 } from '../../shared/types/chainEvents'
-import { fetchAaveGovernanceEvents } from '../providers/events/aaveGovernance'
-import { fetchSnapshotGovernanceEvents } from '../providers/events/snapshotGovernance'
-import { fetchSparkGovernanceEvents } from '../providers/events/sparkGovernance'
+import {
+  EVENT_PROTOCOLS,
+  eventCoverageForProtocols,
+  providersForProtocols,
+  type EventFetchResult,
+  type EventProtocol
+} from '../eventRegistry'
 
-export const SUPPORTED_EVENT_PROTOCOLS = ['Aave', 'Morpho Blue', 'Spark', 'Compound', 'Fluid'] as const
-export type SupportedEventProtocol = typeof SUPPORTED_EVENT_PROTOCOLS[number]
-
-interface EventFetchResult {
-  events: ChainEventRecord[]
-  fetchedAt: string
-}
+export const SUPPORTED_EVENT_PROTOCOLS = EVENT_PROTOCOLS
+export type SupportedEventProtocol = EventProtocol
 
 interface ProviderCacheEntry extends EventFetchResult {
   expiresAt: number
@@ -80,6 +79,7 @@ export async function getRelevantChainEvents (
       meta: {
         fetchedAt: new Date().toISOString(),
         providers: [],
+        coverage: [],
         servedFromCache: true,
         requestedProtocols: [],
         refreshIntervalSeconds: CLIENT_REFRESH_SECONDS
@@ -87,16 +87,7 @@ export async function getRelevantChainEvents (
     }
   }
 
-  const providers: Array<{ key: string, name: string, fetcher: () => Promise<EventFetchResult> }> = []
-  if (protocols.includes('Aave')) {
-    providers.push({ key: 'aave', name: 'Aave DAO governance', fetcher: fetchAaveGovernanceEvents })
-  }
-  if (protocols.includes('Spark')) {
-    providers.push({ key: 'spark', name: 'Spark governance spells', fetcher: fetchSparkGovernanceEvents })
-  }
-  if (protocols.some(protocol => protocol === 'Morpho Blue' || protocol === 'Compound' || protocol === 'Fluid')) {
-    providers.push({ key: 'snapshot', name: 'Snapshot governance', fetcher: fetchSnapshotGovernanceEvents })
-  }
+  const providers = providersForProtocols(protocols)
 
   const results = await Promise.allSettled(providers.map(provider =>
     fetchCachedProvider(provider.key, provider.fetcher)
@@ -123,6 +114,7 @@ export async function getRelevantChainEvents (
     meta: {
       fetchedAt,
       providers: providerMeta,
+      coverage: eventCoverageForProtocols(protocols),
       servedFromCache: successful.length > 0 && successful.every(result => result.servedFromCache),
       requestedProtocols: protocols,
       refreshIntervalSeconds: CLIENT_REFRESH_SECONDS

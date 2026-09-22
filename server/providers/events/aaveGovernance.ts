@@ -1,12 +1,12 @@
 import type { ChainEventRecord } from '../../../shared/types/chainEvents'
-import { ProviderError } from '../errors'
+import { ProviderError } from '../errors.ts'
 import {
   classifyEventTitle,
   detectEventAssets,
   detectEventChains,
   isMaterialGovernanceTitle,
   isRecentTimestamp
-} from './eventUtils'
+} from './eventUtils.ts'
 
 const PROVIDER_NAME = 'Aave DAO governance'
 const CACHE_URL = 'https://raw.githubusercontent.com/aave-dao/aave-governance-cache/main/cache/ui/mainnet/list_view_proposals.json'

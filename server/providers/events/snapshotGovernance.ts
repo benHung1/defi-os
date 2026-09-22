@@ -1,13 +1,14 @@
 import type { ChainEventRecord } from '../../../shared/types/chainEvents'
-import { ProviderError } from '../errors'
-import { classifyEventTitle, detectEventAssets, detectEventChains, isMaterialGovernanceTitle, isRecentTimestamp } from './eventUtils'
+import { ProviderError } from '../errors.ts'
+import { classifyEventTitle, detectEventAssets, detectEventChains, isMaterialGovernanceTitle, isRecentTimestamp } from './eventUtils.ts'
 
 const PROVIDER_NAME = 'Snapshot governance'
 const SNAPSHOT_URL = 'https://hub.snapshot.org/graphql'
 const SPACE_PROTOCOLS: Record<string, string> = {
   'morpho.eth': 'Morpho Blue',
   'comp-vote.eth': 'Compound',
-  'instadapp-gov.eth': 'Fluid'
+  'instadapp-gov.eth': 'Fluid',
+  'maple.eth': 'Maple'
 }
 
 const QUERY = `
@@ -15,7 +16,7 @@ query RecentProtocolGovernance {
   proposals(
     first: 60
     skip: 0
-    where: { space_in: ["morpho.eth", "comp-vote.eth", "instadapp-gov.eth"], state: "closed" }
+    where: { space_in: ["morpho.eth", "comp-vote.eth", "instadapp-gov.eth", "maple.eth"], state: "closed" }
     orderBy: "end"
     orderDirection: desc
   ) {

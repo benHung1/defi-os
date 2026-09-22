@@ -56,11 +56,8 @@ const {
   }
 })
 
-const eventProtocols = new Set(['Aave', 'Morpho Blue', 'Spark', 'Compound', 'Fluid'])
-const supportsEvents = eventProtocols.has(reference.protocol)
 const { data: eventResponse, pending: eventsPending, error: eventsError } = await useFetch<ChainEventResponse>('/api/events', {
-  query: { protocols: reference.protocol, chains: reference.chain, assets: reference.asset, limit: 5 },
-  immediate: supportsEvents
+  query: { protocols: reference.protocol, chains: reference.chain, assets: reference.asset, limit: 5 }
 })
 
 const product = computed(() => productResponse.value?.data ?? null)
@@ -70,6 +67,8 @@ const relatedPositions = computed(() => portfolio.value?.positions.filter(positi
   && position.asset.toUpperCase() === reference.asset
 ) ?? [])
 const productEvents = computed<ChainEventRecord[]>(() => eventResponse.value?.data ?? [])
+const eventCoverage = computed(() => eventResponse.value?.meta.coverage.find(item => item.protocol === reference.protocol))
+const supportsEvents = computed(() => eventCoverage.value?.status !== 'unavailable')
 
 function formatUsd (value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '資料暫缺'
@@ -229,14 +228,14 @@ function positionKindLabel (kind: string): string {
             </div>
           </div>
 
-          <div v-if="!supportsEvents" class="state-card compact">
-            <strong>此協議尚未接入正式事件來源</strong>
-            <p>市場資料可用，但不會因為缺少事件資料就推論目前沒有風險。</p>
-          </div>
-          <div v-else-if="eventsPending" class="state-card compact"><strong>正在核對正式事件…</strong></div>
+          <div v-if="eventsPending" class="state-card compact"><strong>正在核對正式事件…</strong></div>
           <div v-else-if="eventsError" class="state-card compact error">
             <strong>事件來源目前不可用</strong>
             <p>這不代表目前沒有事件。</p>
+          </div>
+          <div v-else-if="!supportsEvents" class="state-card compact">
+            <strong>此協議尚未接入正式事件來源</strong>
+            <p>市場資料可用，但不會因為缺少事件資料就推論目前沒有風險。</p>
           </div>
           <div v-else-if="productEvents.length === 0" class="state-card compact">
             <strong>最近 45 天沒有找到符合範圍的重要正式事件</strong>

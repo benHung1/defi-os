@@ -148,7 +148,14 @@ Relevant event types may include:
 - Significant liquidity movement
 - Important protocol announcements
 
-The MVP may begin with manually curated or simple feed-based events.
+The MVP uses a protocol event adapter registry. A protocol is marked covered only when an official governance,
+verified onchain, or official repository source has been connected. Unsupported protocols remain visibly
+uncovered instead of being filled with generic news.
+
+The first source set covers Aave, Spark, Morpho Blue, Compound, Fluid, Maple, Dolomite, and Yearn. Coverage is
+source-specific: for example, Yearn currently covers official security disclosures and does not claim complete
+governance coverage. Pareto, Midas, and Sentora remain explicit coverage gaps until a reliable formal source is
+integrated.
 
 A full real-time on-chain monitoring system is not required.
 

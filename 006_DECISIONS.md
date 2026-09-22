@@ -173,12 +173,15 @@ The Chain Events section is a compact decision-support feed, not a general DeFi 
 Rules:
 
 - Query only the supported protocols found in the connected wallet's current positions
-- If no supported position exists, do not call upstream event providers in the current MVP
+- Send every recognized wallet protocol to the event registry; call upstream providers only for protocols with a configured formal source
+- Return per-protocol `supported` or `unavailable` coverage so the client never treats a missing adapter as evidence of no events
+- If no position exists, do not call upstream event providers in the current MVP
 - Include only security, pause/deprecation, upgrade, and material governance events
 - Prefer official governance, verified onchain governance, and official repositories; every item must link to its original source
 - Use short HTTP requests with a 10-minute server cache and a 5-minute visible-page refresh; do not keep an SSE connection open
 - One unavailable provider must not hide verified results from other providers
 - Governance approval must not be described as onchain execution unless execution is independently verified
+- Current source coverage includes Aave, Spark, Morpho Blue, Compound, Fluid, Maple, Dolomite, and Yearn security disclosures; Pareto, Midas, and Sentora remain explicit gaps
 
 ---
 

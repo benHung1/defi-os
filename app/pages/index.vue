@@ -615,11 +615,7 @@ const candidateAnnualDifference = (candidate: YieldOpportunity): number => {
   return (position.valueUsd ?? position.amount) * candidateRateDifference(candidate) / 100
 }
 const protocolNames = computed(() => [...new Set(walletPositions.value.map(position => position.protocol))])
-const supportedEventProtocols = ['Aave', 'Morpho Blue', 'Spark', 'Compound', 'Fluid'] as const
-const eventProtocols = computed(() => [...new Set(walletPositions.value
-  .map(position => position.protocol)
-  .filter(protocol => supportedEventProtocols.includes(protocol as typeof supportedEventProtocols[number]))
-)])
+const eventProtocols = computed(() => [...new Set(walletPositions.value.map(position => position.protocol))])
 const eventChains = computed(() => [...new Set(walletPositions.value.map(position => position.chain))])
 const eventAssets = computed(() => [...new Set(walletPositions.value.map(position => position.asset.toUpperCase()))])
 const chainEventResponse = ref<ChainEventResponse | null>(null)
@@ -679,11 +675,15 @@ const currentChainEventResponse = computed(() => {
   return eventProtocols.value.every(protocol => requested.has(protocol)) ? response : null
 })
 const chainEvents = computed(() => currentChainEventResponse.value?.data ?? [])
+const chainEventCoverage = computed(() => currentChainEventResponse.value?.meta.coverage ?? [])
+const coveredEventProtocols = computed(() => chainEventCoverage.value.filter(item => item.status === 'supported').map(item => item.protocol))
+const uncoveredEventProtocols = computed(() => chainEventCoverage.value.filter(item => item.status === 'unavailable').map(item => item.protocol))
 const chainEventProviderFailed = computed(() => currentChainEventResponse.value?.meta.providers.some(provider =>
   provider.status === 'error'
 ) ?? false)
 const chainEventProvidersUnavailable = computed(() => {
   const providers = currentChainEventResponse.value?.meta.providers ?? []
+  if (eventProtocols.value.length > 0 && coveredEventProtocols.value.length === 0) return true
   return providers.length > 0 && providers.every(provider => provider.status === 'error')
 })
 const chainEventFetchedAt = computed(() => currentChainEventResponse.value?.meta.fetchedAt
@@ -731,9 +731,10 @@ const dailyDecisionInput = computed<DailyDecisionInput>(() => {
             : currentChainEventResponse.value
               ? 'ready'
               : 'idle',
-      supportedProtocolCount: eventProtocols.value.length,
-      providerPartial: eventProviders.some(provider => provider.status === 'error')
-        && eventProviders.some(provider => provider.status === 'ok'),
+      supportedProtocolCount: coveredEventProtocols.value.length,
+      providerPartial: uncoveredEventProtocols.value.length > 0
+        || (eventProviders.some(provider => provider.status === 'error')
+          && eventProviders.some(provider => provider.status === 'ok')),
       providersUnavailable: chainEventProvidersUnavailable.value,
       items: chainEvents.value.map(event => ({
         id: event.id,
@@ -1266,7 +1267,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         <div class="section-head">
           <h2>鏈上事件</h2>
           <p v-if="!isWalletConnected">連接後顯示與持倉相關的正式事件</p>
-          <p v-else-if="eventProtocols.length">{{ eventProtocols.length }} 個持倉協議的正式事件</p>
+          <p v-else-if="eventProtocols.length && currentChainEventResponse">
+            {{ coveredEventProtocols.length }}/{{ eventProtocols.length }} 個持倉協議已有正式事件來源
+          </p>
+          <p v-else-if="eventProtocols.length">正在確認 {{ eventProtocols.length }} 個持倉協議的事件來源</p>
           <p v-else>目前沒有可比對的已支援協議</p>
         </div>
 
@@ -1300,15 +1304,15 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           v-else-if="eventProtocols.length === 0"
           class="event-state"
         >
-          <strong>目前沒有已支援的 DeFi 部位</strong>
-          <p>因此這次沒有呼叫外部事件來源；找到支援的協議部位後，這裡會自動開始比對。</p>
+          <strong>目前沒有可比對的 DeFi 部位</strong>
+          <p>因此這次沒有呼叫外部事件來源；找到協議部位後，這裡會自動確認正式來源覆蓋。</p>
         </div>
 
         <div
           v-else-if="chainEventProvidersUnavailable"
           class="event-state event-state-error"
         >
-          <strong>正式事件來源目前無法取得</strong>
+          <strong>{{ coveredEventProtocols.length === 0 ? '目前持倉協議尚無可用的正式事件來源' : '正式事件來源目前無法取得' }}</strong>
           <p>這不代表近期沒有事件；我們沒有用舊新聞或第三方內容補成結果。</p>
           <button type="button" @click="refreshChainEvents">重新查詢</button>
         </div>
@@ -1351,6 +1355,9 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 
         <p v-if="chainEventProviderFailed && !chainEventProvidersUnavailable" class="event-provider-note">
           部分正式來源暫時無法取得；目前只顯示已成功核對的事件。
+        </p>
+        <p v-if="uncoveredEventProtocols.length" class="event-provider-note">
+          尚未覆蓋：{{ uncoveredEventProtocols.join('、') }}。缺少正式來源不代表沒有風險。
         </p>
         <p v-if="chainEventFetchedAt" class="event-fetched">
           查詢時間 {{ chainEventFetchedAt }} · 每 5 分鐘重新核對

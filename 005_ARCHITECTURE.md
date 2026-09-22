@@ -62,3 +62,15 @@ The detail page may combine:
 - official-first Chain Events
 
 Missing Market or Event data remains unavailable instead of being replaced with zero. A Portfolio position can still be inspected when its matching Market observation is temporarily unavailable.
+
+## Chain Event Adapter Registry
+
+Chain Events use an explicit server-side registry rather than protocol conditionals in the page.
+
+- Each wallet protocol is returned with `supported` or `unavailable` event coverage
+- A provider may serve several verified protocol spaces, while a protocol may later use several providers
+- Provider success and protocol coverage are separate: a configured provider can be temporarily unavailable
+- Current official adapters are Aave DAO governance, Spark governance spells, verified Snapshot spaces,
+  Dolomite's official governance archive, and Yearn's official security disclosures
+- The service filters provider results by the wallet's protocol, chain, and asset scope, caches upstream requests
+  for 10 minutes, and never substitutes generic news for missing official coverage
