@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { evaluateDailyDecision, type DailyDecisionInput } from '../app/utils/dailyDecision.ts'
+import { dailyDecisionEventTarget, evaluateDailyDecision, type DailyDecisionInput } from '../app/utils/dailyDecision.ts'
 
 function readyInput (): DailyDecisionInput {
   return {
@@ -38,12 +38,18 @@ test('requires review for a held protocol security event', () => {
     severity: 'CRITICAL',
     protocol: 'Aave',
     title: 'Security incident under investigation',
-    source: 'Aave DAO'
+    source: 'Aave DAO',
+    sourceUrl: 'https://example.com/aave-event',
+    occurredAt: '2026-09-22T00:00:00.000Z',
+    chains: ['Ethereum'],
+    assets: ['USDC']
   })
 
   const result = evaluateDailyDecision(input)
   assert.equal(result.status, 'REVIEW_NOW')
-  assert.equal(result.primaryAction?.target, '#chain-events')
+  assert.equal(result.primaryAction?.target, '#chain-event-security-1')
+  assert.equal(result.reasons[0]?.scope, 'Ethereum · USDC')
+  assert.equal(result.reasons[0]?.sourceUrl, 'https://example.com/aave-event')
 })
 
 test('requires review for a protocol pause', () => {
@@ -116,4 +122,8 @@ test('does not call an address with no positions healthy', () => {
   input.portfolio.protocolCount = 0
 
   assert.equal(evaluateDailyDecision(input).status, 'NO_POSITIONS')
+})
+
+test('builds a stable event anchor from provider ids', () => {
+  assert.equal(dailyDecisionEventTarget('snapshot:proposal/123'), '#chain-event-snapshot-proposal-123')
 })

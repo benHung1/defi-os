@@ -32,6 +32,10 @@ export interface DailyDecisionEvent {
   protocol: string
   title: string
   source: string
+  sourceUrl?: string
+  occurredAt?: string
+  chains?: string[]
+  assets?: string[]
 }
 
 export interface DailyDecisionInput {
@@ -64,7 +68,11 @@ export interface DailyDecisionInput {
 export interface DailyDecisionReason {
   code: DailyDecisionReasonCode
   text: string
+  label?: string
   source?: string
+  sourceUrl?: string
+  occurredAt?: string
+  scope?: string
 }
 
 export interface DailyDecisionResult {
@@ -74,7 +82,16 @@ export interface DailyDecisionResult {
   headline: string
   statement: string
   reasons: DailyDecisionReason[]
-  primaryAction?: { label: string, target: '#portfolio' | '#your-usdc' | '#chain-events' }
+  primaryAction?: { label: string, target: `#${string}` }
+}
+
+export function dailyDecisionEventTarget (id: string): `#chain-event-${string}` {
+  return `#chain-event-${id.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-|-$/g, '')}`
+}
+
+function eventScope (event: DailyDecisionEvent): string {
+  const values = [...(event.chains ?? []), ...(event.assets ?? [])]
+  return values.length > 0 ? values.join(' · ') : event.protocol
 }
 
 function comparisonReason (input: DailyDecisionInput): DailyDecisionReason | null {
@@ -190,11 +207,15 @@ export function evaluateDailyDecision (input: DailyDecisionInput): DailyDecision
         {
           code: isSecurity ? 'SECURITY_EVENT' : 'PAUSE_EVENT',
           text: reviewEvent.title,
-          source: reviewEvent.source
+          label: isSecurity ? '安全事件' : '合約狀態',
+          source: reviewEvent.source,
+          sourceUrl: reviewEvent.sourceUrl,
+          occurredAt: reviewEvent.occurredAt,
+          scope: eventScope(reviewEvent)
         },
         portfolioReason(input)
       ], input),
-      primaryAction: { label: '查看事件與持倉', target: '#chain-events' }
+      primaryAction: { label: '查看這項事件', target: dailyDecisionEventTarget(reviewEvent.id) }
     }
   }
 
@@ -207,10 +228,18 @@ export function evaluateDailyDecision (input: DailyDecisionInput): DailyDecision
       headline: `今天有 ${input.events.items.length} 項持倉相關變化值得了解`,
       statement: '目前看到的是正式升級或治理變化，不等同於需要搬倉；請先查看原始來源。',
       reasons: appendCoverageReason([
-        { code: 'PROTOCOL_CHANGE', text: `${watchEvent.protocol}：${watchEvent.title}`, source: watchEvent.source },
+        {
+          code: 'PROTOCOL_CHANGE',
+          text: `${watchEvent.protocol}：${watchEvent.title}`,
+          label: watchEvent.type === 'UPGRADE' ? '協議升級' : '治理變化',
+          source: watchEvent.source,
+          sourceUrl: watchEvent.sourceUrl,
+          occurredAt: watchEvent.occurredAt,
+          scope: eventScope(watchEvent)
+        },
         portfolioReason(input)
       ], input),
-      primaryAction: { label: '查看相關事件', target: '#chain-events' }
+      primaryAction: { label: '查看這項變化', target: dailyDecisionEventTarget(watchEvent.id) }
     }
   }
 

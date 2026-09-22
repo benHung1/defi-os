@@ -6,7 +6,7 @@ import type {
   ChainEventSeverity,
   ChainEventType
 } from '../../shared/types/chainEvents'
-import { evaluateDailyDecision, type DailyDecisionInput } from '../utils/dailyDecision'
+import { dailyDecisionEventTarget, evaluateDailyDecision, type DailyDecisionInput } from '../utils/dailyDecision'
 import { productDetailPath } from '../utils/productDetail'
 
 interface SummaryItem {
@@ -742,7 +742,11 @@ const dailyDecisionInput = computed<DailyDecisionInput>(() => {
         severity: event.severity,
         protocol: event.protocol,
         title: event.title,
-        source: event.source
+        source: event.source,
+        sourceUrl: event.sourceUrl,
+        occurredAt: event.occurredAt,
+        chains: event.chains,
+        assets: event.assets
       }))
     },
     comparison: {
@@ -763,6 +767,15 @@ const dailyDecisionInput = computed<DailyDecisionInput>(() => {
   }
 })
 const hero = computed(() => evaluateDailyDecision(dailyDecisionInput.value))
+const heroStatusLabel = computed(() => ({
+  ONBOARDING: '尚未開始核對',
+  LOADING: '正在核對',
+  UNKNOWN: '資料未完整',
+  REVIEW_NOW: '需要立即查看',
+  WATCH: '持續留意',
+  MAINTAIN: '已完成核對',
+  NO_POSITIONS: '沒有可比對部位'
+})[hero.value.status])
 const positionKindLabel = (kind: string): string => ({
   SUPPLY: '供應', BORROW: '借款', COLLATERAL: '抵押', VAULT: 'Vault'
 })[kind] ?? kind
@@ -825,7 +838,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         class="hero"
         :class="`hero-${hero.tone}`"
       >
-        <p class="hero-question">{{ hero.question }}</p>
+        <div class="hero-context">
+          <p class="hero-question">{{ hero.question }}</p>
+          <p class="hero-status" :class="`hero-status-${hero.tone}`">{{ heroStatusLabel }}</p>
+        </div>
         <h1 class="hero-headline">
           <span class="hero-dot" :class="`hero-dot-${hero.tone}`" aria-hidden="true" />
           {{ hero.headline }}
@@ -837,8 +853,14 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             v-for="item in hero.reasons"
             :key="`${item.code}:${item.text}`"
           >
-            {{ item.text }}
-            <small v-if="item.source">來源：{{ item.source }}</small>
+            <span v-if="item.label" class="evidence-label">{{ item.label }}</span>
+            <span>{{ item.text }}</span>
+            <small v-if="item.source || item.occurredAt || item.scope">
+              <span v-if="item.occurredAt">{{ formatFetchedAt(item.occurredAt) }}</span>
+              <span v-if="item.scope">{{ item.scope }}</span>
+              <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noopener noreferrer">{{ item.source ?? '查看正式來源' }} ↗</a>
+              <span v-else-if="item.source">來源：{{ item.source }}</span>
+            </small>
           </li>
         </ul>
 
@@ -1328,6 +1350,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         <ul v-else class="events">
           <li
             v-for="event in chainEvents"
+            :id="dailyDecisionEventTarget(event.id).slice(1)"
             :key="event.id"
             class="event"
           >
@@ -1495,6 +1518,29 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   color: var(--color-text-muted);
 }
 
+.hero-context {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-status {
+  margin: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.hero-status-healthy { border-color: color-mix(in srgb, var(--color-status-healthy) 38%, var(--color-border)); color: var(--color-status-healthy); }
+.hero-status-watch { border-color: color-mix(in srgb, var(--color-status-attention) 42%, var(--color-border)); color: var(--color-status-attention); }
+.hero-status-critical { border-color: color-mix(in srgb, #c2413b 42%, var(--color-border)); color: #c2413b; }
+
 .hero-headline {
   display: flex;
   gap: 12px;
@@ -1590,13 +1636,31 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   color: var(--color-text-muted);
 }
 
+.evidence-label {
+  display: inline-flex;
+  margin-right: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: .6875rem;
+  font-weight: 700;
+  line-height: 1.45;
+  vertical-align: 1px;
+}
+
 .evidence small {
-  display: block;
-  margin-top: -3px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: -3px 0 6px;
   color: var(--color-text-muted);
   font-size: .75rem;
   line-height: 1.5;
 }
+
+.evidence small a { color: #168f87; font-weight: 650; text-decoration: none; }
+.evidence small a:hover { text-decoration: underline; }
 
 .hero-action {
   display: inline-flex;
@@ -1613,6 +1677,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 
 .hero-action:hover { border-color: #168f87; color: #168f87; }
 .section { scroll-margin-top: 92px; }
+.event { scroll-margin-top: 112px; }
 
 .market-section-head {
   display: flex;
@@ -2187,6 +2252,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   .hero-headline {
     font-size: 1.625rem;
   }
+
+  .hero-context { align-items: flex-start; flex-direction: column; gap: 10px; }
 
 }
 

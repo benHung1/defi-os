@@ -198,6 +198,9 @@ Rules:
 - Missing or partial critical data must produce an unknown/incomplete state, never a healthy conclusion
 - No supported position is a neutral state, not proof that a portfolio is healthy
 - Every conclusion must expose its reasons and lead to the relevant evidence section
+- Event-driven conclusions must show the event type, affected chain/asset scope when known, occurrence time, and formal source
+- The primary action for an event conclusion must lead to that exact event row, not merely the top of the section
+- The Hero must label incomplete coverage explicitly and must not turn partial evidence into a healthy state
 - AI may improve wording in a future version, but it must not override the deterministic status or invent evidence
 
 ---

@@ -159,6 +159,10 @@ integrated.
 
 A full real-time on-chain monitoring system is not required.
 
+When a formal event affects a detected position, the Decision Hero summarizes the rule outcome and links to the
+exact evidence row. It exposes the event category, known chain/asset scope, timestamp, and original source while
+leaving the transaction decision to the user.
+
 ---
 
 ## 6. Chinese-first UI
