@@ -180,6 +180,23 @@ Rules:
 
 ---
 
+## DEC-015 — Decision Hero Uses Deterministic, Evidence-first Rules
+
+The first Decision Hero does not use AI to determine user status or action severity.
+
+Rules:
+
+- Evaluate only structured Portfolio, personal comparison, and position-relevant Chain Event evidence
+- Security incidents and contract pauses affecting a detected position may produce `REVIEW_NOW`
+- Material protocol upgrades and governance changes may produce `WATCH`
+- A higher APR or APY candidate is supporting evidence only and must not raise the Hero severity by itself
+- Missing or partial critical data must produce an unknown/incomplete state, never a healthy conclusion
+- No supported position is a neutral state, not proof that a portfolio is healthy
+- Every conclusion must expose its reasons and lead to the relevant evidence section
+- AI may improve wording in a future version, but it must not override the deterministic status or invent evidence
+
+---
+
 # Pending Decisions
 
 Decide only when the related work begins:

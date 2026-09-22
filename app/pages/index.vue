@@ -6,6 +6,7 @@ import type {
   ChainEventSeverity,
   ChainEventType
 } from '../../shared/types/chainEvents'
+import { evaluateDailyDecision, type DailyDecisionInput } from '../utils/dailyDecision'
 
 interface SummaryItem {
   label: string
@@ -520,62 +521,6 @@ const marketFetchedAtLabel = computed(() => {
   return formatFetchedAt(fetchedAt)
 })
 
-const hero = computed(() => {
-  if (!isWalletConnected.value) {
-    return {
-      level: 'healthy' as const,
-      question: '開始前，先連接你的錢包',
-      headline: '連接錢包後，查看真正與你相關的 DeFi 提醒',
-      statement: 'DeFi OS 會依你的公開地址整理資產與部位，再從市場資料中找出值得你留意的差異。',
-      evidence: [
-        '只讀取公開地址與鏈上公開資料',
-        '不要求交易、Token Approval 或簽名',
-        '你可以隨時中斷連線'
-      ]
-    }
-  }
-
-  if (portfolioPending.value) {
-    return {
-      level: 'healthy' as const,
-      question: '正在讀取你的公開鏈上資料',
-      headline: '正在整理 Ethereum 上的主要資產…',
-      statement: '這次查詢不會要求簽名或交易。',
-      evidence: ['ETH、USDC、USDT、WBTC', '資料由 Ethereum JSON-RPC 即時讀取']
-    }
-  }
-
-  if (portfolioError.value || !walletPortfolio.value) {
-    return {
-      level: 'attention' as const,
-      question: '今天有什麼需要我注意？',
-      headline: '目前無法取得錢包資產',
-      statement: portfolioError.value ?? '鏈上資料暫時無法使用，請稍後重試。',
-      evidence: ['錢包仍維持唯讀連線', '你可以稍後重新整理資產資料']
-    }
-  }
-
-  const portfolio = walletPortfolio.value
-  const assetCount = portfolio.summary.assetCount
-  const positionCount = portfolio.positions.length
-  return {
-    level: 'healthy' as const,
-    question: '今天有什麼需要我注意？',
-    headline: positionCount > 0
-      ? `已找到 ${portfolio.summary.protocolCount} 個協議、${positionCount} 個鏈上部位`
-      : assetCount > 0 ? `已在 Ethereum 找到 ${assetCount} 種主要資產` : '目前未找到已支援的主要資產或 DeFi 部位',
-    statement: positionCount > 0
-      ? '協議部位已由官方合約核對；下方可查看目前供應、借款、抵押或 Vault 部位。'
-      : '資產餘額與已支援協議皆已完成查詢。',
-    evidence: [
-      `地址 ${walletAddress.value?.slice(0, 6)}…${walletAddress.value?.slice(-4)}`,
-      portfolio.meta.partial ? '部分協議或資產資料暫時不可用' : '錢包資產與協議部位已完成更新',
-      positionCount > 0 ? '部位數值已經鏈上讀取或核對' : '目前沒有可供比較的已支援協議部位'
-    ]
-  }
-})
-
-const isHealthy = computed(() => hero.value.level === 'healthy')
 const walletAssets = computed(() => walletPortfolio.value?.chains.flatMap(chain => chain.assets) ?? [])
 const walletPositions = computed(() => walletPortfolio.value?.positions ?? [])
 const walletUsdc = computed(() => walletAssets.value.find(asset => asset.symbol === 'USDC')?.amount ?? 0)
@@ -718,17 +663,96 @@ onBeforeUnmount(() => {
   if (chainEventRefreshTimer) clearInterval(chainEventRefreshTimer)
 })
 
-const chainEvents = computed(() => chainEventResponse.value?.data ?? [])
-const chainEventProviderFailed = computed(() => chainEventResponse.value?.meta.providers.some(provider =>
+const currentChainEventResponse = computed(() => {
+  const response = chainEventResponse.value
+  if (!response || response.meta.requestedProtocols.length !== eventProtocols.value.length) return null
+  const requested = new Set(response.meta.requestedProtocols)
+  return eventProtocols.value.every(protocol => requested.has(protocol)) ? response : null
+})
+const chainEvents = computed(() => currentChainEventResponse.value?.data ?? [])
+const chainEventProviderFailed = computed(() => currentChainEventResponse.value?.meta.providers.some(provider =>
   provider.status === 'error'
 ) ?? false)
 const chainEventProvidersUnavailable = computed(() => {
-  const providers = chainEventResponse.value?.meta.providers ?? []
+  const providers = currentChainEventResponse.value?.meta.providers ?? []
   return providers.length > 0 && providers.every(provider => provider.status === 'error')
 })
-const chainEventFetchedAt = computed(() => chainEventResponse.value?.meta.fetchedAt
-  ? formatFetchedAt(chainEventResponse.value.meta.fetchedAt)
+const chainEventFetchedAt = computed(() => currentChainEventResponse.value?.meta.fetchedAt
+  ? formatFetchedAt(currentChainEventResponse.value.meta.fetchedAt)
   : '')
+const bestUsdcCandidate = computed(() => {
+  const candidates = usdcDecision.value?.candidates ?? []
+  return candidates.reduce<YieldOpportunity | null>((best, candidate) => {
+    if (candidateRateDifference(candidate) <= 0) return best
+    if (!best || candidateRateDifference(candidate) > candidateRateDifference(best)) return candidate
+    return best
+  }, null)
+})
+const dailyDecisionInput = computed<DailyDecisionInput>(() => {
+  const portfolio = walletPortfolio.value
+  const bestCandidate = bestUsdcCandidate.value
+  const eventProviders = currentChainEventResponse.value?.meta.providers ?? []
+
+  return {
+    connected: isWalletConnected.value,
+    portfolio: {
+      status: !isWalletConnected.value
+        ? 'idle'
+        : portfolioPending.value
+          ? 'loading'
+          : portfolioError.value || !portfolio
+            ? 'error'
+            : 'ready',
+      error: portfolioError.value ?? undefined,
+      addressLabel: walletAddress.value
+        ? `${walletAddress.value.slice(0, 6)}…${walletAddress.value.slice(-4)}`
+        : undefined,
+      assetCount: portfolio?.summary.assetCount ?? 0,
+      positionCount: portfolio?.positions.length ?? 0,
+      protocolCount: portfolio?.summary.protocolCount ?? 0,
+      partial: portfolio?.meta.partial ?? false
+    },
+    events: {
+      status: !isWalletConnected.value || (portfolio?.positions.length ?? 0) === 0
+        ? 'idle'
+        : chainEventsPending.value
+          ? 'loading'
+          : chainEventsError.value
+            ? 'error'
+            : currentChainEventResponse.value
+              ? 'ready'
+              : 'idle',
+      supportedProtocolCount: eventProtocols.value.length,
+      providerPartial: eventProviders.some(provider => provider.status === 'error')
+        && eventProviders.some(provider => provider.status === 'ok'),
+      providersUnavailable: chainEventProvidersUnavailable.value,
+      items: chainEvents.value.map(event => ({
+        id: event.id,
+        type: event.type,
+        severity: event.severity,
+        protocol: event.protocol,
+        title: event.title,
+        source: event.source
+      }))
+    },
+    comparison: {
+      status: !selectedUsdcPosition.value
+        ? 'idle'
+        : usdcDecisionPending.value
+          ? 'loading'
+          : usdcDecisionError.value
+            ? 'error'
+            : usdcDecision.value
+              ? 'ready'
+              : 'idle',
+      candidateCount: usdcDecision.value?.candidates.length ?? 0,
+      bestRateDelta: bestCandidate ? candidateRateDifference(bestCandidate) : null,
+      bestAnnualDeltaUsd: bestCandidate ? candidateAnnualDifference(bestCandidate) : null,
+      rateType: usdcDecision.value?.currentPositionRate?.rateType ?? null
+    }
+  }
+})
+const hero = computed(() => evaluateDailyDecision(dailyDecisionInput.value))
 const positionKindLabel = (kind: string): string => ({
   SUPPLY: '供應', BORROW: '借款', COLLATERAL: '抵押', VAULT: 'Vault'
 })[kind] ?? kind
@@ -782,26 +806,33 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
     <main class="content">
       <section
         class="hero"
-        :class="isHealthy ? 'hero-healthy' : 'hero-attention'"
+        :class="`hero-${hero.tone}`"
       >
         <p class="hero-question">{{ hero.question }}</p>
         <h1 class="hero-headline">
-          <span class="hero-dot">{{ !isWalletConnected ? '○' : isHealthy ? '🟢' : '🟡' }}</span>
+          <span class="hero-dot" :class="`hero-dot-${hero.tone}`" aria-hidden="true" />
           {{ hero.headline }}
         </h1>
         <p class="hero-statement">{{ hero.statement }}</p>
 
         <ul class="evidence">
           <li
-            v-for="item in hero.evidence"
-            :key="item"
+            v-for="item in hero.reasons"
+            :key="`${item.code}:${item.text}`"
           >
-            {{ item }}
+            {{ item.text }}
+            <small v-if="item.source">來源：{{ item.source }}</small>
           </li>
         </ul>
+
+        <a
+          v-if="hero.primaryAction"
+          class="hero-action"
+          :href="hero.primaryAction.target"
+        >{{ hero.primaryAction.label }} ↓</a>
       </section>
 
-      <section class="section wallet-gated-section">
+      <section id="portfolio" class="section wallet-gated-section">
         <div class="section-head portfolio-section-head">
           <div>
             <h2>投資組合</h2>
@@ -880,7 +911,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         </div>
       </section>
 
-      <section class="section wallet-gated-section">
+      <section id="your-usdc" class="section wallet-gated-section">
         <div class="section-head">
           <h2>你的 USDC</h2>
           <p>我的目前部位跟市場差多少？</p>
@@ -1013,7 +1044,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         </div>
       </section>
 
-      <section class="section">
+      <section id="defi-market" class="section">
         <div class="section-head market-section-head">
           <div>
             <h2>DeFi 市場</h2>
@@ -1217,7 +1248,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         </template>
       </section>
 
-      <section class="section">
+      <section id="chain-events" class="section">
         <div class="section-head">
           <h2>鏈上事件</h2>
           <p v-if="!isWalletConnected">連接後顯示與持倉相關的正式事件</p>
@@ -1234,7 +1265,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         </div>
 
         <div
-          v-else-if="chainEventsPending && !chainEventResponse"
+          v-else-if="chainEventsPending && !currentChainEventResponse"
           class="event-state"
           aria-live="polite"
         >
@@ -1425,8 +1456,16 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   border-left: 3px solid var(--color-status-healthy);
 }
 
-.hero-attention {
+.hero-watch {
   border-left: 3px solid var(--color-status-attention);
+}
+
+.hero-critical {
+  border-left: 3px solid #c2413b;
+}
+
+.hero-neutral {
+  border-left: 3px solid var(--color-border);
 }
 
 .hero-question {
@@ -1447,8 +1486,18 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 }
 
 .hero-dot {
-  font-size: 1.5rem;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid var(--color-text-muted);
+  border-radius: 50%;
+  transform: translateY(-1px);
 }
+
+.hero-dot-healthy { border-color: var(--color-status-healthy); background: var(--color-status-healthy); }
+.hero-dot-watch { border-color: var(--color-status-attention); background: var(--color-status-attention); }
+.hero-dot-critical { border-color: #c2413b; background: #c2413b; }
+.hero-dot-neutral { background: transparent; }
 
 .hero-statement {
   margin: 14px 0 0;
@@ -1519,6 +1568,30 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
 }
+
+.evidence small {
+  display: block;
+  margin-top: -3px;
+  color: var(--color-text-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.hero-action {
+  display: inline-flex;
+  margin-top: 20px;
+  padding: 9px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-soft);
+  color: var(--color-text-primary);
+  font-size: .8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-action:hover { border-color: #168f87; color: #168f87; }
+.section { scroll-margin-top: 92px; }
 
 .market-section-head {
   display: flex;
