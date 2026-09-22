@@ -1,26 +1,60 @@
 <script setup lang="ts">
-import { useAppKit, useAppKitAccount } from '@reown/appkit/vue'
+import type { AppKit } from '@reown/appkit'
+import { getReownAppKit } from '../utils/reownAppKit.client'
 
-const configured = computed(() => Boolean(useRuntimeConfig().public.reownProjectId.trim()))
-const { open } = useAppKit()
-const account = useAppKitAccount({ namespace: 'eip155' })
+const projectId = useRuntimeConfig().public.reownProjectId.trim()
+const configured = computed(() => Boolean(projectId))
 const { address: sessionAddress } = useWalletSession()
 const { active: demoActive } = usePortfolioDemo()
+const appKit = shallowRef<AppKit | null>(null)
+const accountAddress = ref<string | null>(null)
+const accountConnected = ref(false)
+const loading = ref(false)
+const loadFailed = ref(false)
+let unsubscribeAccount: (() => void) | null = null
 
-watchEffect(() => {
-  sessionAddress.value = account.value.isConnected ? account.value.address ?? null : null
-})
+interface WalletAccountState { isConnected: boolean, address?: string }
+
+function syncAccount (account?: WalletAccountState): void {
+  accountConnected.value = account?.isConnected ?? false
+  accountAddress.value = account?.address ?? null
+  sessionAddress.value = account?.isConnected ? account.address ?? null : null
+}
+
+async function initializeWallet (): Promise<AppKit | null> {
+  if (!configured.value || appKit.value) return appKit.value
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const instance = await getReownAppKit(projectId)
+    appKit.value = instance
+    syncAccount(instance.getAccount('eip155'))
+    unsubscribeAccount = instance.subscribeAccount(syncAccount, 'eip155')
+    return instance
+  } catch {
+    loadFailed.value = true
+    return null
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => { void initializeWallet() })
+onBeforeUnmount(() => unsubscribeAccount?.())
 
 const buttonLabel = computed(() => {
   if (demoActive.value) return '開發測試部位'
-  const { address, isConnected } = account.value
-  if (!isConnected || !address) return '連接錢包'
-  return `${address.slice(0, 6)}…${address.slice(-4)}`
+  if (loading.value) return '錢包載入中'
+  if (loadFailed.value) return '重試錢包連線'
+  if (!accountConnected.value || !accountAddress.value) return '連接錢包'
+  return `${accountAddress.value.slice(0, 6)}…${accountAddress.value.slice(-4)}`
 })
 
-function openWalletPanel() {
-  void open({
-    view: account.value.isConnected ? 'Account' : 'Connect',
+async function openWalletPanel() {
+  const instance = await initializeWallet()
+  if (!instance) return
+  await instance.open({
+    view: accountConnected.value ? 'Account' : 'Connect',
     namespace: 'eip155'
   })
 }
@@ -32,7 +66,7 @@ function openWalletPanel() {
       <span class="wallet-dot" aria-hidden="true" />
       {{ buttonLabel }}
     </button>
-    <button v-else-if="configured" type="button" class="connect-button" @click="openWalletPanel">
+    <button v-else-if="configured" type="button" class="connect-button" :disabled="loading" :aria-busy="loading" @click="openWalletPanel">
       <span class="wallet-dot" aria-hidden="true" />
       {{ buttonLabel }}
     </button>

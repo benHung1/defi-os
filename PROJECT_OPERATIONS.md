@@ -554,7 +554,6 @@ Current Market source:
 Important unfinished areas:
 
 - periodic re-validation of public live-address samples when protocol contracts or APIs change;
-- accessibility, responsive, and performance review;
 - founder daily-use validation and removal of low-value elements.
 
 Next Product Task:
@@ -603,6 +602,18 @@ Portfolio partial-data acceptance can be inspected in development at:
 The Portfolio API reports balance, protocol-position, and USD-price coverage independently. A partial response
 keeps verified data visible, suppresses an unverified aggregate total, and must never describe an unavailable
 adapter as a zero balance. The Decision Hero remains in an unknown state until coverage is complete.
+
+## Accessibility, responsive, and performance acceptance
+
+The Market filter moves keyboard focus into the dialog, restores focus after Escape or explicit close, and exposes
+multi-select state with `aria-pressed`. Loading and failure states use live-region semantics, all common controls
+share a visible focus treatment, and reduced-motion preferences disable non-essential transitions. The fixed
+Dashboard header keeps a single row at narrow mobile widths and hides only the redundant brand wordmark.
+
+Reown AppKit initializes from a dynamically loaded client module instead of the global Nuxt entry. In the
+2026-09-22 production build this reduced the render-blocking client entry from 915.44 kB (265.80 kB gzip) to
+49.62 kB (18.84 kB gzip). The wallet SDK remains a large deferred chunk, and the build therefore still reports
+the standard large-chunk advisory; the disconnected state and Connect modal opening were re-tested after the split.
 
 ---
 

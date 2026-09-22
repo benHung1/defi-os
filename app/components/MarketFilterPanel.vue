@@ -1,7 +1,9 @@
 <script setup lang="ts">
-const trigger = ref<HTMLElement | null>(null)
+const trigger = ref<HTMLButtonElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
+const closeButton = ref<HTMLButtonElement | null>(null)
 const open = ref(false)
+const panelId = useId()
 
 type MarketChain = string
 type MarketAsset = 'USDC' | 'USDT' | 'ETH' | 'BTC'
@@ -10,14 +12,21 @@ interface ChainOption { key: MarketChain, label: string, symbol: string, group: 
 const props = defineProps<{ chains: MarketChain[], assets: MarketAsset[], options: ChainOption[] }>()
 const emit = defineEmits<{ change: [scope: { chains: MarketChain[], assets: MarketAsset[] }] }>()
 
-function close (): void { open.value = false }
+function close (restoreFocus = false): void {
+  open.value = false
+  if (restoreFocus) nextTick(() => trigger.value?.focus())
+}
 function onDocumentPointerDown (event: PointerEvent): void {
   const target = event.target as Node
   if (open.value && !trigger.value?.contains(target) && !panel.value?.contains(target)) close()
 }
 function onDocumentKeyDown (event: KeyboardEvent): void {
-  if (event.key === 'Escape') close()
+  if (event.key === 'Escape' && open.value) close(true)
 }
+
+watch(open, value => {
+  if (value) nextTick(() => closeButton.value?.focus())
+})
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
@@ -75,22 +84,22 @@ function toggleAsset (asset: MarketAsset): void {
 
 <template>
   <div class="filter-picker">
-    <button ref="trigger" type="button" class="trigger" :aria-expanded="open" aria-haspopup="dialog" @click="open = !open">
+    <button ref="trigger" type="button" class="trigger" :aria-expanded="open" aria-haspopup="dialog" :aria-controls="panelId" @click="open = !open">
       <span class="scope-icon">Ξ</span>
       <span><strong>{{ scopeLabel }}</strong><small>可複選鏈與資產</small></span>
       <span class="summary-chevron" :class="{ open }" aria-hidden="true" />
     </button>
 
-    <div v-if="open" ref="panel" class="panel" role="dialog" aria-label="選擇市場範圍">
+    <div v-if="open" :id="panelId" ref="panel" class="panel" role="dialog" aria-label="選擇市場範圍">
       <div class="panel-head">
         <div><strong>市場範圍</strong><small>目前只顯示已接通的真實資料</small></div>
-        <button type="button" class="close" aria-label="關閉市場篩選" @click="close">×</button>
+        <button ref="closeButton" type="button" class="close" aria-label="關閉市場篩選" @click="close(true)">×</button>
       </div>
 
       <section v-for="group in chainGroups" :key="group.label">
         <p>{{ group.label }}</p>
-        <div class="option-grid">
-          <button v-for="item in group.items" :key="item.key" type="button" class="option" :class="{ selected: chains.includes(item.key) }" @click="toggleChain(item.key)">
+        <div class="option-grid" role="group" :aria-label="group.label">
+          <button v-for="item in group.items" :key="item.key" type="button" class="option" :class="{ selected: chains.includes(item.key) }" :aria-pressed="chains.includes(item.key)" @click="toggleChain(item.key)">
             <i :class="item.key">{{ item.symbol }}</i>
             <span><strong>{{ item.label }}</strong></span>
             <b v-if="chains.includes(item.key)" aria-label="已選擇">✓</b>
@@ -100,8 +109,8 @@ function toggleAsset (asset: MarketAsset): void {
 
       <section>
         <p>Assets</p>
-        <div class="option-grid">
-          <button v-for="item in assetOptions" :key="item.value" type="button" class="option" :class="{ selected: props.assets.includes(item.value) }" :disabled="!selectableAssets.has(item.value)" @click="toggleAsset(item.value)">
+        <div class="option-grid" role="group" aria-label="Assets">
+          <button v-for="item in assetOptions" :key="item.value" type="button" class="option" :class="{ selected: props.assets.includes(item.value) }" :aria-pressed="props.assets.includes(item.value)" :disabled="!selectableAssets.has(item.value)" @click="toggleAsset(item.value)">
             <i :class="item.tone">{{ item.symbol }}</i>
             <span><strong>{{ item.label }}</strong><small v-if="!selectableAssets.has(item.value)">所選鏈未支援</small></span>
             <b v-if="props.assets.includes(item.value)" aria-label="已選擇">✓</b>

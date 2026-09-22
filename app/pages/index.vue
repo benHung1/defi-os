@@ -850,7 +850,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           >
             {{ toggleLabel }}
           </button>
-          <WalletReadOnlyConnect />
+          <LazyWalletReadOnlyConnect />
         </div>
       </div>
     </header>
@@ -904,14 +904,14 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             <p>{{ isWalletConnected ? '我的資產現在在哪裡？' : '連接後，這裡會整理你的鏈上資產與 DeFi 部位。' }}</p>
           </div>
         </div>
-        <div v-if="isWalletConnected && portfolioPending" class="wallet-empty-state">
+        <div v-if="isWalletConnected && portfolioPending" class="wallet-empty-state" role="status" aria-live="polite">
           <div class="wallet-empty-icon" aria-hidden="true">↻</div>
           <div>
             <strong>正在讀取鏈上資產</strong>
             <p>正在查詢 Ethereum 上的 ETH、USDC、USDT 與 WBTC。</p>
           </div>
         </div>
-        <div v-else-if="isWalletConnected && portfolioError" class="wallet-empty-state">
+        <div v-else-if="isWalletConnected && portfolioError" class="wallet-empty-state" role="alert">
           <div class="wallet-empty-icon" aria-hidden="true">!</div>
           <div>
             <strong>目前無法取得錢包資產</strong>
@@ -1002,7 +1002,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           </div>
         </div>
 
-        <div v-else-if="portfolioPending" class="wallet-empty-state compact">
+        <div v-else-if="portfolioPending" class="wallet-empty-state compact" role="status" aria-live="polite">
           <div class="wallet-empty-icon" aria-hidden="true">↻</div>
           <div>
             <strong>正在確認 USDC 餘額</strong>
@@ -1010,7 +1010,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
           </div>
         </div>
 
-        <div v-else-if="portfolioError" class="wallet-empty-state compact">
+        <div v-else-if="portfolioError" class="wallet-empty-state compact" role="alert">
           <div class="wallet-empty-icon" aria-hidden="true">!</div>
           <div>
             <strong>目前無法確認 USDC 部位</strong>
@@ -1160,11 +1160,11 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
         </div>
 
         <div class="market-tools">
-          <div class="market-presets" aria-label="快速資產篩選">
-            <button type="button" :class="{ active: isAssetPresetActive([]) }" @click="applyAssetPreset([])">全部</button>
-            <button type="button" :class="{ active: isAssetPresetActive(['USDC', 'USDT']) }" @click="applyAssetPreset(['USDC', 'USDT'])">穩定幣</button>
-            <button type="button" :class="{ active: isAssetPresetActive(['ETH']) }" @click="applyAssetPreset(['ETH'])">ETH</button>
-            <button type="button" :class="{ active: isAssetPresetActive(['BTC']) }" @click="applyAssetPreset(['BTC'])">BTC</button>
+          <div class="market-presets" role="group" aria-label="快速資產篩選">
+            <button type="button" :class="{ active: isAssetPresetActive([]) }" :aria-pressed="isAssetPresetActive([])" @click="applyAssetPreset([])">全部</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['USDC', 'USDT']) }" :aria-pressed="isAssetPresetActive(['USDC', 'USDT'])" @click="applyAssetPreset(['USDC', 'USDT'])">穩定幣</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['ETH']) }" :aria-pressed="isAssetPresetActive(['ETH'])" @click="applyAssetPreset(['ETH'])">ETH</button>
+            <button type="button" :class="{ active: isAssetPresetActive(['BTC']) }" :aria-pressed="isAssetPresetActive(['BTC'])" @click="applyAssetPreset(['BTC'])">BTC</button>
           </div>
           <form class="market-search" role="search" @submit.prevent="applyMarketSearch">
             <input v-model="marketSearchDraft" type="search" maxlength="80" placeholder="搜尋協議、產品、鏈或資產…" aria-label="搜尋市場產品">
@@ -1452,7 +1452,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   right: 0;
   left: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
-  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--color-background) 88%, transparent);
   backdrop-filter: blur(16px);
 }
 
@@ -2335,6 +2335,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 }
 
 @media (max-width: 480px) {
+  .header-inner,
+  .header-actions { flex-wrap: nowrap; }
+  .brand .name { display: none; }
+
   .market-section-head {
     align-items: flex-start;
   }

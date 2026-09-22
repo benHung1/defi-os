@@ -126,7 +126,7 @@ function positionKindLabel (kind: string): string {
           <button type="button" class="theme-toggle" :aria-label="toggleLabel" @click="toggleTheme">
             {{ toggleLabel }}
           </button>
-          <WalletReadOnlyConnect />
+          <LazyWalletReadOnlyConnect />
         </div>
       </div>
     </header>
