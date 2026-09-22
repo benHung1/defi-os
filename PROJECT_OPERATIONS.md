@@ -542,6 +542,7 @@ Current Market scope:
 Current personal comparison:
 
 - connected-wallet positions come from read-only protocol adapters;
+- all 12 registered position adapters have deterministic contract tests for their core balance or share conversion path;
 - market candidates come from `/api/decision/usdc`;
 - only matching `rateType` values may be numerically compared;
 - higher yield remains factual evidence, not recommendation.
@@ -579,6 +580,11 @@ the complete raw report is required.
 
 Aave and Spark read protocol contracts directly. Morpho uses its indexer for discovery metadata and verifies
 shares or balances onchain before returning a position.
+
+Automated adapter coverage currently includes Aave, SparkLend, Spark Savings, Compound V3, Morpho Blue,
+Fluid, Maple, Yearn V2/V3, Pareto, Midas, Dolomite, and Sentora. These tests use deterministic RPC/API responses
+to lock decimals, receipt-share conversion, underlying-asset conversion, rate type, valuation, zero-balance, and
+dust behavior. They do not replace the public-address live checks listed above.
 
 ---
 

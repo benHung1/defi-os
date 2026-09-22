@@ -1,5 +1,5 @@
-import { ethCall, formatTokenUnits } from '../ethereum/client'
-import { ProviderError } from '../errors'
+import { ethCall, formatTokenUnits } from '../ethereum/client.ts'
+import { ProviderError } from '../errors.ts'
 
 const PROVIDER_NAME = 'Spark'
 const SPARK_USDC_VAULT = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d' as const

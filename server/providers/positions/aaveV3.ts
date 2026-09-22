@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
 import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import type { ProtocolPositionAdapter, ProtocolPositionResult } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import type { ProtocolPositionAdapter, ProtocolPositionResult } from './types.ts'
 
 const RAY = 1e27
 const SECONDS_PER_YEAR = 31_536_000

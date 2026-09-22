@@ -1,6 +1,6 @@
-import { fetchFluidEthereumUsdcMarket } from '../fluid/lending'
-import { readErc4626Position } from './erc4626'
-import type { ProtocolPositionAdapter } from './types'
+import { fetchFluidEthereumUsdcMarket } from '../fluid/lending.ts'
+import { readErc4626Position } from './erc4626.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const FUSDC_ADDRESS = '0x9Fb7b4477576Fe5B32be4C1843aFB1e55F251B33'
 const USDC_ADDRESS = '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'

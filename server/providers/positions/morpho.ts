@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
 import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import type { ProtocolPositionAdapter } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const MORPHO_GRAPHQL_URL = 'https://api.morpho.org/graphql'
 const MIN_POSITION_USD = 0.01

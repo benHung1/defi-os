@@ -1,4 +1,4 @@
-import { ProviderError } from '../errors'
+import { ProviderError } from '../errors.ts'
 
 const PROVIDER_NAME = 'Fluid'
 const FLUID_LEND_API_URL = 'https://api.fluid.instadapp.io/1/tokens'

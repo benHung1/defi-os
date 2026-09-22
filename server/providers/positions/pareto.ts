@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import type { ProtocolPositionAdapter } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9eb0ce3606eb48'
 const paretoInterface = new Interface([

@@ -1,5 +1,5 @@
-import { readErc4626Position } from './erc4626'
-import type { ProtocolPositionAdapter } from './types'
+import { readErc4626Position } from './erc4626.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const MAPLE_API_URL = 'https://api.maple.finance/v2/graphql'
 const SYRUP_USDC_ADDRESS = '0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b'

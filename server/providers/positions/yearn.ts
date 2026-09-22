@@ -1,8 +1,8 @@
 import { Interface } from 'ethers'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import { readErc4626Position } from './erc4626'
-import type { ProtocolPositionAdapter } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import { readErc4626Position } from './erc4626.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const YEARN_VAULTS_URL = 'https://ydaemon.yearn.fi/1/vaults/all?first=1000&strategiesDetails=noDetails'
 const USDC_ADDRESS = '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'

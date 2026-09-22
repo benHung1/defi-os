@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import type { ProtocolPositionAdapter } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const tokenInterface = new Interface([
   'function balanceOf(address account) view returns (uint256)'

@@ -1,5 +1,5 @@
-import { encodeUint256Argument, ethCall, formatTokenUnits } from '../ethereum/client'
-import { ProviderError } from '../errors'
+import { encodeUint256Argument, ethCall, formatTokenUnits } from '../ethereum/client.ts'
+import { ProviderError } from '../errors.ts'
 
 const PROVIDER_NAME = 'Compound'
 const COMET_USDC = '0xc3d688B66703497DAA19211EEdff47f25384cdc3' as const

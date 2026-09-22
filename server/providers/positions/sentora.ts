@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import type { ProtocolPositionAdapter } from './types'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const SENTORA_VAULT = '0x74aD2F789Ed583DBd141bbdafC673fE1F033718b'
 const SENTORA_RECEIPT_TOKEN = '0xe8aa1a9ec6b9bc455d8f33e4bdc685dedff82407'

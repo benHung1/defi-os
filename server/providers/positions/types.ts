@@ -1,4 +1,4 @@
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
 
 export interface ProtocolPositionResult {
   positions: PortfolioPosition[]

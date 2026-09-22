@@ -1,8 +1,8 @@
 import { Interface } from 'ethers'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import { fetchCompoundEthereumUsdcMarket } from '../compound/comet'
-import type { PortfolioPosition } from '../../../shared/types/portfolio'
-import type { ProtocolPositionAdapter } from './types'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import { fetchCompoundEthereumUsdcMarket } from '../compound/comet.ts'
+import type { PortfolioPosition } from '../../../shared/types/portfolio.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const COMET_USDC = '0xc3d688B66703497DAA19211EEdff47f25384cdc3'
 const COLLATERAL_ASSETS = [

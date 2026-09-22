@@ -1,7 +1,7 @@
 import { Interface } from 'ethers'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
-import { fetchSparkUsdcVault } from '../spark/vault'
-import type { ProtocolPositionAdapter } from './types'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
+import { fetchSparkUsdcVault } from '../spark/vault.ts'
+import type { ProtocolPositionAdapter } from './types.ts'
 
 const SPARK_USDC_VAULT = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d'
 const vaultInterface = new Interface([

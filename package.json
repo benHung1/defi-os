@@ -9,7 +9,7 @@
     "generate": "nuxt generate",
     "lint": "eslint .",
     "preview": "nuxt preview",
-    "test:decision": "node --test tests/dailyDecision.test.ts tests/productDetail.test.ts tests/chainEventRegistry.test.ts tests/positionAdapters.test.ts",
+    "test:decision": "node --test tests/dailyDecision.test.ts tests/productDetail.test.ts tests/chainEventRegistry.test.ts tests/positionAdapters.test.ts tests/positionAdaptersExtended.test.ts",
     "verify:positions": "node scripts/verify-position-adapters.ts",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
