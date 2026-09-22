@@ -188,7 +188,7 @@ test('Yearn adapter handles V3 convertToAssets and legacy pricePerShare', async 
       const common = { endorsed: true, emergency_shutdown: false, tvl: { tvl: 1 }, details: {}, token: { address: USDC, decimals: 6 } }
       return Response.json([
         { ...common, address: v3, name: 'Yearn V3 USDC', version: '3.0.4', decimals: 6, apr: { netAPR: 0.05 } },
-        { ...common, address: legacy, name: 'Yearn V2 USDC', version: '2.0.0', decimals: 6, apr: { netAPR: 0.04 } }
+        { ...common, address: legacy, name: 'Yearn V2 USDC', version: '2.0.0', decimals: 6, apr: { netAPR: 0.04 }, details: { isRetired: true } }
       ])
     }
     const { to, data } = rpcCall(init)
@@ -204,6 +204,31 @@ test('Yearn adapter handles V3 convertToAssets and legacy pricePerShare', async 
     ['Yearn V2 USDC', 3.3, 4]
   ])
   assert.deepEqual(result.warnings, [])
+})
+
+test('Yearn adapter keeps a retired vault position and does not turn a missing APR into zero', async () => {
+  const legacy = '0x4444444444444444444444444444444444444444'
+  const mock: typeof fetch = async (input, init) => {
+    if (String(input).includes('ydaemon.yearn.fi')) {
+      return Response.json([{
+        address: legacy,
+        name: 'Retired USDC Vault',
+        version: '2.0.0',
+        decimals: 6,
+        token: { address: USDC, decimals: 6 },
+        apr: { netAPR: null },
+        info: { isRetired: true }
+      }])
+    }
+    const { data } = rpcCall(init)
+    if (data.startsWith(legacyYearnInterface.getFunction('balanceOf')!.selector)) return uintResult(3_000_000n)
+    if (data.startsWith(legacyYearnInterface.getFunction('pricePerShare')!.selector)) return uintResult(1_100_000n)
+    throw new Error(`Unexpected retired Yearn call ${data.slice(0, 10)}`)
+  }
+  const result = await withFetchMock(mock, () => yearnPositionAdapter.getPositions(USER))
+  assert.equal(result.positions[0]?.amount, 3.3)
+  assert.equal(result.positions[0]?.rate, null)
+  assert.equal(result.positions[0]?.rateType, null)
 })
 
 test('Pareto adapter combines active tranche value and pending underlying assets', async () => {

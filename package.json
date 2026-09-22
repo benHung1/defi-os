@@ -11,6 +11,7 @@
     "preview": "nuxt preview",
     "test:decision": "node --test tests/dailyDecision.test.ts tests/productDetail.test.ts tests/chainEventRegistry.test.ts tests/positionAdapters.test.ts tests/positionAdaptersExtended.test.ts",
     "verify:positions": "node scripts/verify-position-adapters.ts",
+    "verify:position-samples": "node scripts/verify-position-samples.ts",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },

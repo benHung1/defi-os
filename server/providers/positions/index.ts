@@ -12,7 +12,7 @@ import { sparkSavingsPositionAdapter } from './sparkSavings.ts'
 import type { ProtocolPositionAdapter, ProtocolPositionResult } from './types.ts'
 import { yearnPositionAdapter } from './yearn.ts'
 
-const ADAPTERS: Record<PositionAdapterKey, ProtocolPositionAdapter> = {
+export const POSITION_ADAPTERS: Record<PositionAdapterKey, ProtocolPositionAdapter> = {
   'aave-v3': aaveEthereumPositionAdapter,
   'spark-lend': sparkLendPositionAdapter,
   'spark-savings': sparkSavingsPositionAdapter,
@@ -27,7 +27,7 @@ const ADAPTERS: Record<PositionAdapterKey, ProtocolPositionAdapter> = {
   sentora: sentoraPositionAdapter
 }
 
-const adapters = POSITION_ADAPTER_KEYS.map(key => ADAPTERS[key])
+const adapters = POSITION_ADAPTER_KEYS.map(key => POSITION_ADAPTERS[key])
 
 export async function getEthereumProtocolPositions (address: string): Promise<ProtocolPositionResult> {
   const settled = await Promise.allSettled(adapters.map(adapter => adapter.getPositions(address)))

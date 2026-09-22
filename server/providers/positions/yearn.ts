@@ -4,7 +4,7 @@ import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
 import { readErc4626Position } from './erc4626.ts'
 import type { ProtocolPositionAdapter } from './types.ts'
 
-const YEARN_VAULTS_URL = 'https://ydaemon.yearn.fi/1/vaults/all?first=1000&strategiesDetails=noDetails'
+const YEARN_VAULTS_URL = 'https://ydaemon.yearn.fi/vaults/all?chainids=1&limit=100000'
 const USDC_ADDRESS = '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
 const legacyVaultInterface = new Interface([
   'function balanceOf(address account) view returns (uint256)',
@@ -24,22 +24,28 @@ interface YearnVault {
   details?: { isRetired?: unknown, isHidden?: unknown }
 }
 
-function isActiveUsdcVault (vault: YearnVault): boolean {
+function isKnownUsdcVault (vault: YearnVault): boolean {
   return typeof vault.address === 'string'
     && vault.token?.address?.toString().toLowerCase() === USDC_ADDRESS.toLowerCase()
-    && vault.endorsed === true
-    && vault.emergency_shutdown !== true
-    && vault.details?.isRetired !== true
-    && vault.details?.isHidden !== true
-    && Number(vault.tvl?.tvl ?? 0) > 0
 }
 
-async function fetchActiveUsdcVaults (): Promise<YearnVault[]> {
+function optionalFiniteNumber (value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+async function fetchKnownUsdcVaults (): Promise<YearnVault[]> {
   const response = await fetch(YEARN_VAULTS_URL, { signal: AbortSignal.timeout(12_000) })
   if (!response.ok) throw new Error(`Yearn API returned HTTP ${response.status}`)
   const payload = await response.json()
   if (!Array.isArray(payload)) throw new Error('Yearn API returned an invalid vault list')
-  return (payload as YearnVault[]).filter(isActiveUsdcVault)
+  // Portfolio discovery must include retired, hidden, unendorsed, or
+  // emergency-shutdown vaults: a user can still hold withdrawable shares
+  // after market admission has ended. Market discovery applies its own
+  // active-product filters. `endorsed` is deprecated and absent from the
+  // current complete Yearn vault response.
+  return (payload as YearnVault[]).filter(isKnownUsdcVault)
 }
 
 async function readLegacyPosition (address: string, vault: YearnVault): Promise<PortfolioPosition | null> {
@@ -54,7 +60,7 @@ async function readLegacyPosition (address: string, vault: YearnVault): Promise<
   const pricePerShare = legacyVaultInterface.decodeFunctionResult('pricePerShare', priceResult)[0] as bigint
   const decimals = Number(vault.decimals ?? 6)
   const assets = shares * pricePerShare / (BigInt(10) ** BigInt(decimals))
-  const netApr = Number(vault.apr?.netAPR)
+  const netApr = optionalFiniteNumber(vault.apr?.netAPR)
 
   return {
     protocol: 'Yearn',
@@ -64,8 +70,8 @@ async function readLegacyPosition (address: string, vault: YearnVault): Promise<
     asset: 'USDC',
     amount: formatTokenUnits(assets, Number(vault.token?.decimals ?? 6)),
     valueUsd: null,
-    rate: Number.isFinite(netApr) ? netApr * 100 : null,
-    rateType: Number.isFinite(netApr) ? 'APR' : null,
+    rate: netApr === null ? null : netApr * 100,
+    rateType: netApr === null ? null : 'APR',
     contractAddress: vaultAddress,
     assetAddress: USDC_ADDRESS,
     verification: 'ONCHAIN',
@@ -75,7 +81,7 @@ async function readLegacyPosition (address: string, vault: YearnVault): Promise<
 
 async function readYearnVaultPosition (address: string, vault: YearnVault): Promise<PortfolioPosition | null> {
   const version = typeof vault.version === 'string' ? vault.version : ''
-  const netApr = Number(vault.apr?.netAPR)
+  const netApr = optionalFiniteNumber(vault.apr?.netAPR)
   if (!version.startsWith('3.')) return readLegacyPosition(address, vault)
 
   return readErc4626Position(address, {
@@ -85,21 +91,21 @@ async function readYearnVaultPosition (address: string, vault: YearnVault): Prom
     asset: 'USDC',
     assetAddress: USDC_ADDRESS,
     assetDecimals: Number(vault.token?.decimals ?? 6),
-    rate: Number.isFinite(netApr) ? netApr * 100 : null,
-    rateType: Number.isFinite(netApr) ? 'APR' : null
+    rate: netApr === null ? null : netApr * 100,
+    rateType: netApr === null ? null : 'APR'
   })
 }
 
 export const yearnPositionAdapter: ProtocolPositionAdapter = {
   name: 'Yearn',
   async getPositions (address) {
-    const vaults = await fetchActiveUsdcVaults()
+    const vaults = await fetchKnownUsdcVaults()
     const settled = await Promise.allSettled(vaults.map(vault => readYearnVaultPosition(address, vault)))
     const positions = settled.flatMap(result => result.status === 'fulfilled' && result.value ? [result.value] : [])
     const failedCount = settled.filter(result => result.status === 'rejected').length
     return {
       positions,
-      warnings: failedCount > 0 ? [`Yearn positions unavailable for ${failedCount} active vaults`] : []
+      warnings: failedCount > 0 ? [`Yearn positions unavailable for ${failedCount} known vaults`] : []
     }
   }
 }

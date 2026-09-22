@@ -553,7 +553,7 @@ Current Market source:
 
 Important unfinished areas:
 
-- live-address acceptance samples for each supported position adapter;
+- periodic re-validation of public live-address samples when protocol contracts or APIs change;
 - error recovery, accessibility, responsive, and performance review;
 - founder daily-use validation and removal of low-value elements.
 
@@ -580,6 +580,16 @@ the complete raw report is required.
 
 Aave and Spark read protocol contracts directly. Morpho uses its indexer for discovery metadata and verifies
 shares or balances onchain before returning a position.
+
+To run the manual live-address smoke suite for every registered adapter:
+
+`pnpm verify:position-samples`
+
+The suite uses Blockscout only to discover a current public receipt-token holder, then requires the corresponding
+adapter to independently return a non-zero contract-verified position. It does not store a user's address, sign a
+message, request an approval, or run in CI. On 2026-09-22 all 12 registered adapters returned non-zero positions
+with zero warnings. The live run also identified and fixed Yearn portfolio discovery so retired vaults
+remain visible to existing holders; market admission continues to apply separate active-product rules.
 
 Automated adapter coverage currently includes Aave, SparkLend, Spark Savings, Compound V3, Morpho Blue,
 Fluid, Maple, Yearn V2/V3, Pareto, Midas, Dolomite, and Sentora. These tests use deterministic RPC/API responses
