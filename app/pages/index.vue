@@ -785,6 +785,17 @@ const formatPositionAmount = (amount: number, asset: string): string =>
 const formatPositionValue = (value: number | null): string => value === null
   ? '美元價值暫缺'
   : `US$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+const completeUsdTotal = (values: Array<number | null>): number | null =>
+  values.some(value => value === null)
+    ? null
+    : values.reduce<number>((total, value) => total + (value ?? 0), 0)
+const walletAssetTotalUsd = computed(() => completeUsdTotal(walletAssets.value.map(asset => asset.valueUsd)))
+const defiPositionTotalUsd = computed(() => completeUsdTotal(walletPositions.value.map(position => position.valueUsd)))
+const portfolioValueBreakdown = computed(() => {
+  const walletValue = formatPositionValue(walletAssetTotalUsd.value)
+  const defiValue = formatPositionValue(defiPositionTotalUsd.value)
+  return `錢包資產 ${walletValue} ＋ DeFi 部位 ${defiValue}`
+})
 const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
   ? '利率不適用'
   : `${rate.toFixed(2)}% ${rateType}`
@@ -803,7 +814,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
     ? '價格不完整'
     : `US$${portfolio.summary.totalUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
   return [
-    { label: '投資組合價值', value: totalValue, note: 'Ethereum 主要資產合計' },
+    { label: '投資組合價值', value: totalValue, note: portfolioValueBreakdown.value },
     { label: '資產', value: `${portfolio.summary.assetCount} 種`, note: symbols },
     { label: '協議', value: `${portfolio.summary.protocolCount} 個`, note: protocolNames.value.join('、') || '未找到已支援協議部位' },
     { label: '鏈', value: `${portfolio.summary.chainCount} 條`, note: portfolio.summary.chainCount ? 'Ethereum' : '未找到資產' }
@@ -916,7 +927,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
               <h3>DeFi 部位明細</h3>
               <p>已辨識並完成鏈上核對的協議產品</p>
             </div>
-            <span>{{ walletPositions.length }} 個部位</span>
+            <span>{{ walletPositions.length }} 個部位 · {{ formatPositionValue(defiPositionTotalUsd) }}</span>
           </div>
           <div class="position-list">
             <article
@@ -2046,7 +2057,9 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 
 .usdc-position-picker label { display: flex; flex-direction: column; gap: 4px; color: var(--color-text-primary); font-size: .8125rem; }
 .usdc-position-picker label small { color: var(--color-text-muted); font-size: .75rem; }
-.usdc-position-picker select { min-width: min(390px, 62%); padding: 9px 34px 9px 11px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-soft); color: var(--color-text-primary); cursor: pointer; font: inherit; font-size: .8125rem; }
+.usdc-position-picker select { min-width: min(390px, 62%); padding: 9px 34px 9px 11px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-soft); color: var(--color-text-primary); color-scheme: light; cursor: pointer; font: inherit; font-size: .8125rem; }
+.usdc-position-picker option { background: var(--color-surface); color: var(--color-text-primary); }
+:global(html[data-theme='dark']) .usdc-position-picker select { color-scheme: dark; }
 
 .usdc-current-card {
   display: grid;
