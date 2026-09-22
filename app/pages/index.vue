@@ -794,7 +794,7 @@ const defiPositionTotalUsd = computed(() => completeUsdTotal(walletPositions.val
 const portfolioValueBreakdown = computed(() => {
   const walletValue = formatPositionValue(walletAssetTotalUsd.value)
   const defiValue = formatPositionValue(defiPositionTotalUsd.value)
-  return `錢包資產 ${walletValue} ＋ DeFi 部位 ${defiValue}`
+  return `錢包資產 ${walletValue}\nDeFi 部位 ${defiValue}`
 })
 const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
   ? '利率不適用'
