@@ -222,6 +222,7 @@ function opportunityDisplayTypeLabel (opportunity: YieldOpportunity): string {
 }
 
 const { toggleLabel, toggleTheme } = useTheme()
+const { active: portfolioDemoActive } = usePortfolioDemo()
 const { address: walletAddress, isConnected: isWalletConnected } = useWalletSession()
 const { portfolio: walletPortfolio, pending: portfolioPending, error: portfolioError, refresh: refreshPortfolio } = usePortfolio()
 const route = useRoute()
@@ -834,6 +835,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
     </header>
 
     <main class="content">
+      <aside v-if="portfolioDemoActive" class="demo-notice" aria-label="開發測試資料">
+        <strong>開發測試資料</strong>
+        <span>Aave、Morpho Blue、Spark 的示範部位；不是目前連接錢包的真實資產。</span>
+      </aside>
       <section
         class="hero"
         :class="`hero-${hero.tone}`"
@@ -1485,6 +1490,21 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   gap: 56px;
   margin-top: 24px;
 }
+
+.demo-notice {
+  display: flex;
+  gap: 10px 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, #a56813 38%, var(--color-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #a56813 8%, var(--color-surface));
+  color: var(--color-text-secondary);
+  font-size: .75rem;
+}
+
+.demo-notice strong { color: #b7791f; white-space: nowrap; }
 
 .header :deep(.wallet-connect) { align-items: center; }
 .header :deep(.wallet-connect p) { display: none; }
@@ -2254,6 +2274,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   }
 
   .hero-context { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .demo-notice { align-items: flex-start; flex-direction: column; }
 
 }
 

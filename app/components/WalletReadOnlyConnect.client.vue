@@ -5,12 +5,14 @@ const configured = computed(() => Boolean(useRuntimeConfig().public.reownProject
 const { open } = useAppKit()
 const account = useAppKitAccount({ namespace: 'eip155' })
 const { address: sessionAddress } = useWalletSession()
+const { active: demoActive } = usePortfolioDemo()
 
 watchEffect(() => {
   sessionAddress.value = account.value.isConnected ? account.value.address ?? null : null
 })
 
 const buttonLabel = computed(() => {
+  if (demoActive.value) return '開發測試部位'
   const { address, isConnected } = account.value
   if (!isConnected || !address) return '連接錢包'
   return `${address.slice(0, 6)}…${address.slice(-4)}`
@@ -26,7 +28,11 @@ function openWalletPanel() {
 
 <template>
   <div class="wallet-connect">
-    <button v-if="configured" type="button" class="connect-button" @click="openWalletPanel">
+    <button v-if="demoActive" type="button" class="demo-button" disabled>
+      <span class="wallet-dot" aria-hidden="true" />
+      {{ buttonLabel }}
+    </button>
+    <button v-else-if="configured" type="button" class="connect-button" @click="openWalletPanel">
       <span class="wallet-dot" aria-hidden="true" />
       {{ buttonLabel }}
     </button>
@@ -44,6 +50,7 @@ function openWalletPanel() {
 .read-only-dot { width: 6px; height: 6px; border-radius: 50%; background: #168f87; }
 .connect-button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid #268f88; border-radius: 10px; background: #168f87; color: #fff; font: inherit; font-size: .8125rem; font-weight: 700; cursor: pointer; }
 .connect-button:hover { background: #117a74; }
+.demo-button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid #a56813; border-radius: 10px; background: color-mix(in srgb, #a56813 12%, var(--color-surface)); color: #b7791f; font: inherit; font-size: .8125rem; font-weight: 700; }
 .connect-button:focus-visible { outline: 3px solid color-mix(in srgb, #168f87 35%, transparent); outline-offset: 2px; }
 .wallet-dot { width: 7px; height: 7px; border: 2px solid currentColor; border-radius: 50%; }
 .setup-button { padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-muted); font: inherit; font-size: .8125rem; }

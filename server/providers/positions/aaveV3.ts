@@ -1,5 +1,5 @@
 import { Interface } from 'ethers'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
 import type { PortfolioPosition } from '../../../shared/types/portfolio'
 import type { ProtocolPositionAdapter, ProtocolPositionResult } from './types'
 

@@ -1,9 +1,10 @@
 import { Interface } from 'ethers'
-import { ethCallData, formatTokenUnits } from '../ethereum/client'
+import { ethCallData, formatTokenUnits } from '../ethereum/client.ts'
 import type { PortfolioPosition } from '../../../shared/types/portfolio'
 import type { ProtocolPositionAdapter } from './types'
 
 const MORPHO_GRAPHQL_URL = 'https://api.morpho.org/graphql'
+const MIN_POSITION_USD = 0.01
 const morphoInterface = new Interface([
   'function position(bytes32 id,address user) view returns (uint256 supplyShares,uint128 borrowShares,uint128 collateral)'
 ])
@@ -50,6 +51,11 @@ function numberValue (value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function isKnownDust (...values: unknown[]): boolean {
+  const known = values.map(numberValue).filter((value): value is number => value !== null)
+  return known.length > 0 && known.every(value => Math.abs(value) < MIN_POSITION_USD)
+}
+
 async function fetchUserPositions (address: string): Promise<Record<string, unknown>> {
   const response = await fetch(MORPHO_GRAPHQL_URL, {
     method: 'POST',
@@ -59,9 +65,11 @@ async function fetchUserPositions (address: string): Promise<Record<string, unkn
   })
   if (!response.ok) throw new Error(`Morpho GraphQL returned HTTP ${response.status}`)
   const payload: unknown = await response.json()
-  if (!isRecord(payload) || (Array.isArray(payload.errors) && payload.errors.length > 0) || !isRecord(payload.data) || !isRecord(payload.data.userByAddress)) {
+  if (!isRecord(payload) || (Array.isArray(payload.errors) && payload.errors.length > 0) || !isRecord(payload.data)) {
     throw new Error('Morpho GraphQL returned an invalid user position response')
   }
+  if (payload.data.userByAddress === null) return { marketPositions: [], vaultPositions: [] }
+  if (!isRecord(payload.data.userByAddress)) throw new Error('Morpho GraphQL returned an invalid user position response')
   return payload.data.userByAddress
 }
 
@@ -96,6 +104,7 @@ export const morphoPositionAdapter: ProtocolPositionAdapter = {
       if (!isRecord(item) || !isRecord(item.market) || !isRecord(item.state)) throw new Error('invalid market position')
       const market = item.market
       const state = item.state
+      if (isKnownDust(state.supplyAssetsUsd, state.borrowAssetsUsd, state.collateralUsd)) return []
       if (typeof market.marketId !== 'string' || !isRecord(market.morphoBlue) || typeof market.morphoBlue.address !== 'string' || !isRecord(market.loanAsset)) {
         throw new Error('invalid market identity')
       }
@@ -154,6 +163,7 @@ export const morphoPositionAdapter: ProtocolPositionAdapter = {
       if (!isRecord(item) || !isRecord(item.vault) || !isRecord(item.state) || !isRecord(item.vault.asset)) throw new Error('invalid vault position')
       const vault = item.vault
       const assetValue = vault.asset
+      if (isKnownDust(item.state.assetsUsd)) return []
       if (!isRecord(assetValue)) throw new Error('invalid vault asset')
       const asset = assetValue
       if (typeof vault.address !== 'string' || typeof vault.name !== 'string' || typeof asset.symbol !== 'string' || typeof asset.decimals !== 'number') throw new Error('invalid vault identity')

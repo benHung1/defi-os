@@ -517,19 +517,15 @@ A normal implementation Task is CLOSED only when:
 
 Last Completed Task:
 
-**Task-011 — Simplify Dashboard Information Architecture**
+**MVP Integration — Position-aware Decision Dashboard**
 
 Status:
 
-**CLOSED / MERGED**
-
-main / origin/main:
-
-`648e71a871bca504ea410aaafdd25c33f53953b5`
+**Active validation on `codex/task-012-market-groups-links`**
 
 Working tree:
 
-**Clean at OPS-001 start.**
+**See `git status`; validation changes are committed in small slices.**
 
 Current Dashboard hierarchy:
 
@@ -541,31 +537,48 @@ Current Dashboard hierarchy:
 
 Current Market scope:
 
-**USDC only**
+**Supported multi-chain USDC, USDT, ETH, and BTC-related yield products with Portfolio-readable coverage.**
 
 Current personal comparison:
 
-- current position remains temporary/mock;
+- connected-wallet positions come from read-only protocol adapters;
 - market candidates come from `/api/decision/usdc`;
 - only matching `rateType` values may be numerically compared;
 - higher yield remains factual evidence, not recommendation.
 
 Current Market source:
 
-`/api/market/usdc/dashboard`
+`/api/market/dashboard`
 
 Important unfinished areas:
 
-- real Portfolio source;
-- wallet integration/read path;
-- multi-asset DeFi Market;
-- Chain Events real data;
-- complete Decision Engine;
-- recommendation/safety rules.
+- live-address acceptance samples for each supported position adapter;
+- error recovery, accessibility, responsive, and performance review;
+- founder daily-use validation and removal of low-value elements.
 
 Next Product Task:
 
-**Not defined yet.**
+**Complete v1 integration validation before adding features.**
+
+## Local Portfolio Acceptance Scenario
+
+The development-only URL below exercises the same Dashboard data contract with clearly labeled Aave, Morpho
+Blue, and Spark positions:
+
+`http://localhost:3001/?demoPortfolio=aave-morpho-spark`
+
+The scenario is gated by `import.meta.dev`; the same query parameter has no effect in a production build. It must
+always display the `開發測試資料` notice and must never be presented as live wallet evidence.
+
+To verify the three live adapters against any public Ethereum address:
+
+`pnpm verify:positions -- 0x<public-address>`
+
+The default report shows at most 10 positions per adapter and deduplicates warning text. Add `--full` only when
+the complete raw report is required.
+
+Aave and Spark read protocol contracts directly. Morpho uses its indexer for discovery metadata and verifies
+shares or balances onchain before returning a position.
 
 ---
 

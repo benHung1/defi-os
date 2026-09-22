@@ -1,7 +1,9 @@
 import type { PortfolioResponse } from '../../shared/types/portfolio'
+import { createPortfolioDemo } from '../utils/portfolioDemo'
 
 export function usePortfolio() {
   const { address } = useWalletSession()
+  const { active: demoActive } = usePortfolioDemo()
   const portfolio = ref<PortfolioResponse | null>(null)
   const pending = ref(false)
   const error = ref<string | null>(null)
@@ -12,6 +14,13 @@ export function usePortfolio() {
     const currentRequest = ++requestId
     if (!requestedAddress) {
       portfolio.value = null
+      pending.value = false
+      error.value = null
+      return
+    }
+
+    if (demoActive.value) {
+      portfolio.value = createPortfolioDemo()
       pending.value = false
       error.value = null
       return
@@ -32,7 +41,7 @@ export function usePortfolio() {
     }
   }
 
-  watch(address, refresh, { immediate: true })
+  watch([address, demoActive], refresh, { immediate: true })
 
   return { portfolio, pending, error, refresh }
 }

@@ -205,6 +205,21 @@ Rules:
 
 ---
 
+## DEC-016 — Portfolio Acceptance Fixtures Are Development-only
+
+Representative Aave, Morpho Blue, and Spark positions may be injected only to validate the complete Dashboard
+flow when the connected test wallet has no DeFi positions.
+
+Rules:
+
+- The fixture is enabled only by `import.meta.dev` and an explicit query parameter
+- A persistent visible notice must identify all fixture data as non-live
+- Production builds must ignore the parameter
+- Fixture tests validate UI integration; adapter contract tests and live public-address checks validate data correctness
+- A fixture must never be cited as proof that a live address was read successfully
+
+---
+
 ## DEC-016 — Product Detail Is a Thin Evidence Layer
 
 The Product detail page completes the path from a Dashboard conclusion to its underlying evidence without expanding the homepage or duplicating a full analytics terminal.

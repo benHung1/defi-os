@@ -38,7 +38,7 @@ export function classifyEventTitle (title: string): { type: ChainEventType, seve
   if (/incident|exploit|hack|vulnerab|reimburse|attack/i.test(title)) {
     return { type: 'SECURITY', severity: 'CRITICAL' }
   }
-  if (/pause|freeze|deprecat|offboard|wind(?:ing)? down|shutdown|kill switch/i.test(title)) {
+  if (/\b(?:pause|paused|pausing|freeze|frozen|freezing|deprecat(?:e|ed|ion)|offboard(?:ed|ing)?|shutdown|kill switch)\b|wind(?:ing)? down/i.test(title)) {
     return { type: 'PAUSE', severity: 'WATCH' }
   }
   if (/upgrade|migration|activation|launch|implementation|spell/i.test(title)) {
