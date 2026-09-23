@@ -3,7 +3,16 @@ import type {
   UsdcDecisionCandidateResponse
 } from '../types/position'
 import type { YieldOpportunity } from '../types/yield'
-import { getUsdcMarketOpportunities } from './usdcMarketService'
+import { MARKET_CHAINS } from '../marketRegistry'
+import { getMultiScopedMarketDashboard } from './scopedMarketDashboardService'
+
+function normalizeProductName (value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .replace(/\busdc\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
 
 /**
  * Same-product identity uses domain fields only.
@@ -14,26 +23,38 @@ export function isSameUsdcProduct (
   opportunity: YieldOpportunity
 ): boolean {
   return opportunity.asset === position.asset
-    && opportunity.protocol === position.protocol
-    && opportunity.product === position.product
-    && opportunity.opportunityType === position.opportunityType
-    && opportunity.chain === position.chain
+    && opportunity.protocol.toLocaleLowerCase() === position.protocol.toLocaleLowerCase()
+    && normalizeProductName(opportunity.product) === normalizeProductName(position.product)
+    && opportunity.chain.toLocaleLowerCase() === position.chain.toLocaleLowerCase()
 }
 
 /**
  * Conservative candidate eligibility.
- * Different opportunityType does not automatically disqualify.
- * Market Service already owns DataQuality evaluation; we only defensively confirm VERIFIED.
+ * Market Service already owns DataQuality evaluation; we only defensively confirm VERIFIED
+ * and enforce the current position's chain and rate convention.
  */
 function isDecisionCandidate (
   position: UsdcCurrentPosition,
-  opportunity: YieldOpportunity
+  opportunity: YieldOpportunity,
+  currentPositionRate: UsdcDecisionCandidateResponse['currentPositionRate']
 ): boolean {
   if (opportunity.asset !== position.asset) {
     return false
   }
 
   if (opportunity.dataQuality !== 'VERIFIED') {
+    return false
+  }
+
+  if (opportunity.chain.toLocaleLowerCase() !== position.chain.toLocaleLowerCase()) {
+    return false
+  }
+
+  if (!currentPositionRate || opportunity.rateType !== currentPositionRate.rateType) {
+    return false
+  }
+
+  if (opportunity.rate <= currentPositionRate.rate) {
     return false
   }
 
@@ -46,12 +67,23 @@ function isDecisionCandidate (
 
 /**
  * Look up the current position product in the Market Universe for a factual rate.
- * Returns null when the fixture product is not present as a VERIFIED opportunity.
+ * Returns null when neither Portfolio nor the Market Universe provides a verified rate.
  */
 function resolveCurrentPositionRate (
   position: UsdcCurrentPosition,
   opportunities: YieldOpportunity[]
 ): UsdcDecisionCandidateResponse['currentPositionRate'] {
+  if (
+    position.rate !== undefined
+    && Number.isFinite(position.rate)
+    && position.rateType !== undefined
+  ) {
+    return {
+      rate: position.rate,
+      rateType: position.rateType
+    }
+  }
+
   const match = opportunities.find(opportunity =>
     isSameUsdcProduct(position, opportunity)
     && opportunity.dataQuality === 'VERIFIED'
@@ -74,13 +106,20 @@ function resolveCurrentPositionRate (
 export async function getUsdcDecisionCandidates (
   currentPosition: UsdcCurrentPosition
 ): Promise<UsdcDecisionCandidateResponse> {
-  const market = await getUsdcMarketOpportunities()
+  const marketChain = MARKET_CHAINS.find(chain =>
+    chain.label.toLocaleLowerCase() === currentPosition.chain.toLocaleLowerCase()
+  )
+  if (!marketChain) throw new Error(`Unsupported USDC comparison chain: ${currentPosition.chain}`)
+
+  const market = await getMultiScopedMarketDashboard([marketChain.key], ['USDC'], { limit: 100 })
 
   const currentPositionRate = resolveCurrentPositionRate(currentPosition, market.data)
 
   const candidates = market.data.filter(opportunity =>
-    isDecisionCandidate(currentPosition, opportunity)
+    isDecisionCandidate(currentPosition, opportunity, currentPositionRate)
   )
+    .sort((left, right) => right.rate - left.rate)
+    .slice(0, 3)
 
   return {
     currentPosition,

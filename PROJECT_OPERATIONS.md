@@ -517,19 +517,15 @@ A normal implementation Task is CLOSED only when:
 
 Last Completed Task:
 
-**Task-011 — Simplify Dashboard Information Architecture**
+**v1 Integration Validation — Position-aware Decision Dashboard**
 
 Status:
 
-**CLOSED / MERGED**
-
-main / origin/main:
-
-`648e71a871bca504ea410aaafdd25c33f53953b5`
+**Release candidate published on `codex/task-012-market-groups-links`**
 
 Working tree:
 
-**Clean at OPS-001 start.**
+**Clean after RC validation; the branch is tracking `origin/codex/task-012-market-groups-links`.**
 
 Current Dashboard hierarchy:
 
@@ -541,31 +537,101 @@ Current Dashboard hierarchy:
 
 Current Market scope:
 
-**USDC only**
+**Supported multi-chain USDC, USDT, ETH, and BTC-related yield products with Portfolio-readable coverage.**
 
 Current personal comparison:
 
-- current position remains temporary/mock;
+- connected-wallet positions come from read-only protocol adapters;
+- all 12 registered position adapters have deterministic contract tests for their core balance or share conversion path;
 - market candidates come from `/api/decision/usdc`;
 - only matching `rateType` values may be numerically compared;
 - higher yield remains factual evidence, not recommendation.
 
 Current Market source:
 
-`/api/market/usdc/dashboard`
+`/api/market/dashboard`
 
 Important unfinished areas:
 
-- real Portfolio source;
-- wallet integration/read path;
-- multi-asset DeFi Market;
-- Chain Events real data;
-- complete Decision Engine;
-- recommendation/safety rules.
+- periodic re-validation of public live-address samples when protocol contracts or APIs change;
+- founder validation with a real wallet that holds at least one supported position.
 
 Next Product Task:
 
-**Not defined yet.**
+**Run the founder real-wallet acceptance pass, then prepare the v1 release candidate.**
+
+## v1 Integration Acceptance
+
+The Dashboard has one decision flow:
+
+`Decision Hero → Portfolio evidence → Personal USDC comparison → Market exploration → Position-relevant events`
+
+Before a v1 release candidate is approved:
+
+- disconnected mode must explain the read-only connection and must not imply that portfolio data was checked;
+- complete position mode must keep totals, position counts, comparison scope, and event scope consistent;
+- partial coverage must label displayed values as verified subsets and must not infer that missing positions are zero;
+- event copy must use the same 45-day window as the event query and Decision Hero;
+- Portfolio loading and Event loading must be presented as separate stages;
+- automated tests, typecheck, lint, production build, desktop visual review, and narrow-screen review must pass;
+- one founder-controlled wallet with a supported live position must complete the same flow without using a development fixture.
+
+Development fixtures validate presentation and data contracts, but they do not satisfy the final real-wallet item.
+
+## Local Portfolio Acceptance Scenario
+
+The development-only URL below exercises the same Dashboard data contract with clearly labeled Aave, Morpho
+Blue, and Spark positions:
+
+`http://localhost:3001/?demoPortfolio=aave-morpho-spark`
+
+The scenario is gated by `import.meta.dev`; the same query parameter has no effect in a production build. It must
+always display the `開發測試資料` notice and must never be presented as live wallet evidence.
+
+To verify the three live adapters against any public Ethereum address:
+
+`pnpm verify:positions -- 0x<public-address>`
+
+The default report shows at most 10 positions per adapter and deduplicates warning text. Add `--full` only when
+the complete raw report is required.
+
+Aave and Spark read protocol contracts directly. Morpho uses its indexer for discovery metadata and verifies
+shares or balances onchain before returning a position.
+
+To run the manual live-address smoke suite for every registered adapter:
+
+`pnpm verify:position-samples`
+
+The suite uses Blockscout only to discover a current public receipt-token holder, then requires the corresponding
+adapter to independently return a non-zero contract-verified position. It does not store a user's address, sign a
+message, request an approval, or run in CI. On 2026-09-22 all 12 registered adapters returned non-zero positions
+with zero warnings. The live run also identified and fixed Yearn portfolio discovery so retired vaults
+remain visible to existing holders; market admission continues to apply separate active-product rules.
+
+Automated adapter coverage currently includes Aave, SparkLend, Spark Savings, Compound V3, Morpho Blue,
+Fluid, Maple, Yearn V2/V3, Pareto, Midas, Dolomite, and Sentora. These tests use deterministic RPC/API responses
+to lock decimals, receipt-share conversion, underlying-asset conversion, rate type, valuation, zero-balance, and
+dust behavior. They do not replace the public-address live checks listed above.
+
+Portfolio partial-data acceptance can be inspected in development at:
+
+`http://localhost:3001/?demoPortfolio=partial-coverage`
+
+The Portfolio API reports balance, protocol-position, and USD-price coverage independently. A partial response
+keeps verified data visible, suppresses an unverified aggregate total, and must never describe an unavailable
+adapter as a zero balance. The Decision Hero remains in an unknown state until coverage is complete.
+
+## Accessibility, responsive, and performance acceptance
+
+The Market filter moves keyboard focus into the dialog, restores focus after Escape or explicit close, and exposes
+multi-select state with `aria-pressed`. Loading and failure states use live-region semantics, all common controls
+share a visible focus treatment, and reduced-motion preferences disable non-essential transitions. The fixed
+Dashboard header keeps a single row at narrow mobile widths and hides only the redundant brand wordmark.
+
+Reown AppKit initializes from a dynamically loaded client module instead of the global Nuxt entry. In the
+2026-09-22 production build this reduced the render-blocking client entry from 915.44 kB (265.80 kB gzip) to
+49.62 kB (18.84 kB gzip). The wallet SDK remains a large deferred chunk, and the build therefore still reports
+the standard large-chunk advisory; the disconnected state and Connect modal opening were re-tested after the split.
 
 ---
 

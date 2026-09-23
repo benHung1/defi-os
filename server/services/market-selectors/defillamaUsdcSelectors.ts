@@ -1,5 +1,6 @@
 import type { DefiLlamaYieldPool } from '../../providers/defillama/yields'
 import type {
+  ExcludedMarketObservation,
   OpportunityType,
   YieldOpportunity
 } from '../../types/yield'
@@ -154,13 +155,19 @@ export function selectCompoundV3Pool (pools: DefiLlamaYieldPool[]): DefiLlamaYie
   })
 }
 
-function toMarketOpportunity (
+interface DefiLlamaUsdcSelection {
+  opportunities: YieldOpportunity[]
+  excluded: ExcludedMarketObservation[]
+}
+
+function selectMarketObservation (
   pool: DefiLlamaYieldPool,
   protocol: string,
   product: string,
   opportunityType: OpportunityType,
+  productUrl: string,
   fetchedAt: string
-): YieldOpportunity | null {
+): { opportunity?: YieldOpportunity, excluded?: ExcludedMarketObservation } {
   const quality = evaluateObservationDataQuality(pool.apy, pool.apyMean30d)
 
   // Market Service owns DataQuality policy: omit SUSPECT observations.
@@ -173,48 +180,76 @@ function toMarketOpportunity (
       apyMean30d: pool.apyMean30d,
       dataQualityReasons: quality.dataQualityReasons
     })
-    return null
+    if (pool.apyMean30d === null) {
+      return {}
+    }
+    return {
+      excluded: {
+        protocol,
+        product,
+        chain: pool.chain,
+        asset: ASSET,
+        reasonCode: 'APY_DEVIATES_FROM_30D_MEAN',
+        reason: '目前 APY 達近 30 日平均的 2 倍以上，暫不納入排名。',
+        currentRate: pool.apy,
+        referenceRate: pool.apyMean30d,
+        rateType: 'APY',
+        source: SOURCE_NAME,
+        sourceKind: 'THIRD_PARTY_AGGREGATOR',
+        productUrl,
+        sourcePoolId: pool.pool
+      }
+    }
   }
 
   return {
-    protocol,
-    product,
-    opportunityType,
-    asset: ASSET,
-    chain: pool.chain,
-    rate: pool.apy,
-    rateType: 'APY',
-    tvlUsd: pool.tvlUsd,
-    source: SOURCE_NAME,
-    sourceUrl: SOURCE_URL,
-    sourcePoolId: pool.pool,
-    dataQuality: quality.dataQuality,
-    fetchedAt
+    opportunity: {
+      protocol,
+      product,
+      opportunityType,
+      asset: ASSET,
+      chain: pool.chain,
+      rate: pool.apy,
+      rateType: 'APY',
+      tvlUsd: pool.tvlUsd,
+      source: SOURCE_NAME,
+      sourceKind: 'THIRD_PARTY_AGGREGATOR',
+      productUrl,
+      sourceUrl: SOURCE_URL,
+      sourcePoolId: pool.pool,
+      dataQuality: quality.dataQuality,
+      fetchedAt
+    }
   }
 }
 
 function pushIfVerified (
-  opportunities: YieldOpportunity[],
+  selection: DefiLlamaUsdcSelection,
   pool: DefiLlamaYieldPool | null,
   protocol: string,
   product: string,
   opportunityType: OpportunityType,
+  productUrl: string,
   fetchedAt: string
 ): void {
   if (!pool) {
     return
   }
 
-  const opportunity = toMarketOpportunity(
+  const observation = selectMarketObservation(
     pool,
     protocol,
     product,
     opportunityType,
+    productUrl,
     fetchedAt
   )
 
-  if (opportunity) {
-    opportunities.push(opportunity)
+  if (observation.opportunity) {
+    selection.opportunities.push(observation.opportunity)
+  }
+  if (observation.excluded) {
+    selection.excluded.push(observation.excluded)
   }
 }
 
@@ -224,44 +259,38 @@ function pushIfVerified (
 export function selectDefiLlamaUsdcOpportunities (
   pools: DefiLlamaYieldPool[],
   fetchedAt: string
-): YieldOpportunity[] {
-  const opportunities: YieldOpportunity[] = []
+): DefiLlamaUsdcSelection {
+  const selection: DefiLlamaUsdcSelection = { opportunities: [], excluded: [] }
 
   pushIfVerified(
-    opportunities,
-    selectAavePool(pools),
-    'Aave',
-    'Aave V3 Ethereum USDC',
-    'LENDING_SUPPLY',
-    fetchedAt
-  )
-
-  pushIfVerified(
-    opportunities,
+    selection,
     selectSparkPool(pools),
     'Spark',
     'Spark Savings USDC',
     'SAVINGS',
+    'https://app.spark.finance/savings/',
     fetchedAt
   )
 
   pushIfVerified(
-    opportunities,
+    selection,
     selectFluidPool(pools),
     'Fluid',
     'Fluid Lending USDC',
     'LENDING_SUPPLY',
+    'https://fluid.instadapp.io/lending/1',
     fetchedAt
   )
 
   pushIfVerified(
-    opportunities,
+    selection,
     selectCompoundV3Pool(pools),
     'Compound',
     'Compound V3 Ethereum USDC',
     'LENDING_SUPPLY',
+    'https://app.compound.finance/?market=usdc-mainnet',
     fetchedAt
   )
 
-  return opportunities
+  return selection
 }

@@ -41,5 +41,6 @@ defineProps<{
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--color-text-muted);
+  white-space: pre-line;
 }
 </style>

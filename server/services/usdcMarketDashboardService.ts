@@ -1,8 +1,13 @@
 import type {
+  DataSourceKind,
+  MarketDashboardSort,
+  OpportunityType,
+  RateType,
   UsdcMarketDashboardResponse,
   YieldOpportunity
 } from '../types/yield'
 import { getUsdcMarketOpportunities } from './usdcMarketService'
+import { attachPositionSupport } from '../productRegistry'
 
 /**
  * Presentation ceiling for the Market Dashboard UI.
@@ -12,6 +17,7 @@ const DASHBOARD_MAX_ITEMS = 20
 
 /** Maximum Morpho curated vaults shown on the Dashboard. */
 const MORPHO_DASHBOARD_LIMIT = 6
+const MORPHO_PROTOCOL = 'Morpho Blue'
 
 /**
  * Exact upstream-name family key for Morpho presentation deduplication.
@@ -20,7 +26,7 @@ const MORPHO_DASHBOARD_LIMIT = 6
  */
 export function morphoProductFamilyKey (product: string): string {
   return product
-    .replace(/ \(V[12]\)$/, '')
+    .replace(/(?: \(V[12]\)| · Vault V[12])$/, '')
     .toLowerCase()
     .trim()
 }
@@ -51,20 +57,26 @@ function compareByTvlThenIdentity (
   return (left.sourcePoolId ?? '').localeCompare(right.sourcePoolId ?? '')
 }
 
+function compareByRateThenIdentity (left: YieldOpportunity, right: YieldOpportunity): number {
+  const rateDiff = right.rate - left.rate
+  return rateDiff !== 0 ? rateDiff : compareByTvlThenIdentity(left, right)
+}
+
 /**
  * Select up to MORPHO_DASHBOARD_LIMIT Morpho vaults:
  * TVL-desc first, then exact-name family dedupe (keep highest-TVL per family).
  */
 export function selectMorphoDashboardOpportunities (
-  opportunities: YieldOpportunity[]
+  opportunities: YieldOpportunity[],
+  sort: MarketDashboardSort = 'tvl'
 ): YieldOpportunity[] {
   const morpho = opportunities
     .filter(opportunity =>
-      opportunity.protocol === 'Morpho'
+      opportunity.protocol === MORPHO_PROTOCOL
       && opportunity.dataQuality === 'VERIFIED'
       && opportunity.opportunityType === 'CURATED_VAULT'
     )
-    .sort(compareByTvlThenIdentity)
+    .sort(sort === 'rate' ? compareByRateThenIdentity : compareByTvlThenIdentity)
 
   const selected: YieldOpportunity[] = []
   const seenFamilies = new Set<string>()
@@ -88,7 +100,7 @@ function selectNonMorphoDashboardOpportunities (
   opportunities: YieldOpportunity[]
 ): YieldOpportunity[] {
   return opportunities.filter(opportunity =>
-    opportunity.protocol !== 'Morpho'
+    opportunity.protocol !== MORPHO_PROTOCOL
     && opportunity.dataQuality === 'VERIFIED'
   )
 }
@@ -98,12 +110,14 @@ function selectNonMorphoDashboardOpportunities (
  * Exported for deterministic verification of Morpho family selection.
  */
 export function selectUsdcMarketDashboardOpportunities (
-  opportunities: YieldOpportunity[]
+  opportunities: YieldOpportunity[],
+  sort: MarketDashboardSort = 'tvl'
 ): YieldOpportunity[] {
   const nonMorpho = selectNonMorphoDashboardOpportunities(opportunities)
-  const morpho = selectMorphoDashboardOpportunities(opportunities)
+  const morpho = selectMorphoDashboardOpportunities(opportunities, sort)
 
-  const combined = [...nonMorpho, ...morpho].sort(compareByTvlThenIdentity)
+  const combined = [...nonMorpho, ...morpho]
+    .sort(sort === 'rate' ? compareByRateThenIdentity : compareByTvlThenIdentity)
 
   // Presentation ceiling only — do not fill unused slots with extra Morpho vaults.
   if (combined.length > DASHBOARD_MAX_ITEMS) {
@@ -118,11 +132,39 @@ export function selectUsdcMarketDashboardOpportunities (
  * Presentation / selection layer over the complete Market Universe.
  * Does not fetch providers, alter DataQuality, or produce recommendations.
  */
-export async function getUsdcMarketDashboard (): Promise<UsdcMarketDashboardResponse> {
-  const market = await getUsdcMarketOpportunities()
+export async function getUsdcMarketDashboard (
+  options: {
+    forceRefresh?: boolean
+    limit?: number
+    sort?: MarketDashboardSort
+    opportunityType?: OpportunityType
+    sourceKind?: DataSourceKind
+    rateType?: RateType
+  } = {}
+): Promise<UsdcMarketDashboardResponse> {
+  const market = await getUsdcMarketOpportunities(options)
+  const sort = options.sort ?? 'tvl'
+  const filtered = market.data.filter(opportunity =>
+    (options.opportunityType === undefined || opportunity.opportunityType === options.opportunityType)
+    && (options.sourceKind === undefined || opportunity.sourceKind === options.sourceKind)
+    && (options.rateType === undefined || opportunity.rateType === options.rateType)
+  )
+  const dashboardOpportunities = selectUsdcMarketDashboardOpportunities(filtered, sort)
+  const limit = options.limit ?? 5
+  const visibleProducts = dashboardOpportunities.slice(0, limit).map(attachPositionSupport)
 
   return {
-    data: selectUsdcMarketDashboardOpportunities(market.data),
-    meta: market.meta
+    data: visibleProducts,
+    excluded: market.excluded,
+    meta: {
+      ...market.meta,
+      ranking: {
+        scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS',
+        sort,
+        limit,
+        productCount: visibleProducts.length,
+        totalEligibleProducts: dashboardOpportunities.length
+      }
+    }
   }
 }

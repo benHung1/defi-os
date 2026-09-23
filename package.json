@@ -9,13 +9,21 @@
     "generate": "nuxt generate",
     "lint": "eslint .",
     "preview": "nuxt preview",
+    "test:decision": "node --test tests/dailyDecision.test.ts tests/productDetail.test.ts tests/chainEventRegistry.test.ts tests/positionAdapters.test.ts tests/positionAdaptersExtended.test.ts tests/portfolioService.test.ts",
+    "verify:positions": "node scripts/verify-position-adapters.ts",
+    "verify:position-samples": "node scripts/verify-position-samples.ts",
     "typecheck": "nuxt typecheck",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@reown/appkit": "^1.8.23",
+    "@reown/appkit-adapter-ethers": "^1.8.23",
+    "ethers": "^6.17.0",
     "nuxt": "^4.5.1",
     "vue": "^3.5.40",
-    "vue-router": "^5.2.0"
+    "vue-router": "^5.2.0",
+    "ws": "7.5.13"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.16.0",

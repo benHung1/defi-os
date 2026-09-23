@@ -1,27 +1,42 @@
 <script setup lang="ts">
 defineProps<{
-  protocol: string
+  rank: number
   product: string
   typeLabel: string
   chain: string
   rateLabel: string
   tvlLabel: string
+  sourceLabel: string
+  fetchedAtLabel: string
+  rateHelp: string
+  detailUrl: string
+  productUrl?: string
 }>()
 </script>
 
 <template>
   <li class="row">
     <div class="main">
-      <p class="protocol">{{ protocol }}</p>
-      <p class="product">{{ product }}</p>
+      <p class="product"><span class="rank">#{{ rank }}</span>{{ product }}</p>
       <p class="meta">
         <span>{{ typeLabel }}</span>
         <span>{{ chain }}</span>
+        <span>{{ sourceLabel }}</span>
+        <span>更新 {{ fetchedAtLabel }}</span>
+      </p>
+      <p class="links">
+        <NuxtLink :to="detailUrl">查看詳情</NuxtLink>
+        <a
+          v-if="productUrl"
+          :href="productUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >產品連結 ↗</a>
       </p>
     </div>
 
     <div class="metrics">
-      <p class="rate">{{ rateLabel }}</p>
+      <p class="rate" :title="rateHelp">{{ rateLabel }} <span aria-hidden="true">ⓘ</span></p>
       <p class="tvl">TVL {{ tvlLabel }}</p>
     </div>
   </li>
@@ -45,19 +60,33 @@ defineProps<{
   min-width: 0;
 }
 
-.protocol {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
-
 .product {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+.rank { display: inline-block; min-width: 32px; margin-right: 8px; color: var(--color-text-muted); font-size: .8125rem; }
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 10px 0 0;
+  font-size: 0.8125rem;
+}
+
+.links a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.links a:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
 }
 
 .meta {
@@ -71,6 +100,7 @@ defineProps<{
 
 .metrics {
   flex-shrink: 0;
+  min-width: 132px;
   text-align: right;
 }
 
@@ -80,12 +110,21 @@ defineProps<{
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rate span {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  cursor: help;
 }
 
 .tvl {
   margin: 6px 0 0;
   font-size: 0.8125rem;
   color: var(--color-text-body);
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 480px) {

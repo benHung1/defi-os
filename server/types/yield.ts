@@ -1,4 +1,6 @@
 export type RateType = 'APR' | 'APY'
+export type DataSourceKind = 'OFFICIAL_API' | 'ONCHAIN' | 'THIRD_PARTY_AGGREGATOR'
+export type MarketDashboardSort = 'tvl' | 'rate'
 
 export type FreshnessStatus = 'fresh' | 'stale' | 'unavailable'
 
@@ -51,6 +53,8 @@ export function evaluateObservationDataQuality (
 export interface YieldOpportunity {
   protocol: string
   product: string
+  /** Product implementation version, distinct from the protocol name/version. */
+  productVersion?: string
   opportunityType: OpportunityType
   asset: string
   chain: string
@@ -58,8 +62,13 @@ export interface YieldOpportunity {
   rateType: RateType
   tvlUsd: number | null
   source: string
+  sourceKind: DataSourceKind
+  /** User-facing official product page. Kept separate from provider provenance. */
+  productUrl?: string
   sourceUrl?: string
   sourcePoolId?: string
+  /** The matching product has a live read-only wallet-position adapter. */
+  positionReadable?: boolean
   /**
    * Whether DeFi OS can currently trust this provider observation enough to use it.
    * Not a protocol-safety or economic-risk label.
@@ -100,10 +109,33 @@ export interface YieldResponseMeta {
    * Per-opportunity provenance remains on each YieldOpportunity.source.
    */
   providers: ProviderFetchMeta[]
+  /** Whether this response reused the latest successful server snapshot. */
+  servedFromCache?: boolean
+  /** Remaining manual-refresh cooldown when a refresh request reused cache. */
+  refreshCooldownSeconds?: number
+  /** A fresh upstream attempt failed, so the last successful snapshot is shown. */
+  cacheFallback?: boolean
+}
+
+export interface ExcludedMarketObservation {
+  protocol: string
+  product: string
+  chain: string
+  asset: string
+  reasonCode: 'APY_DEVIATES_FROM_30D_MEAN'
+  reason: string
+  currentRate: number
+  referenceRate: number
+  rateType: RateType
+  source: string
+  sourceKind: DataSourceKind
+  productUrl?: string
+  sourcePoolId?: string
 }
 
 export interface UsdcMarketResponse {
   data: YieldOpportunity[]
+  excluded: ExcludedMarketObservation[]
   meta: YieldResponseMeta
 }
 
@@ -113,7 +145,16 @@ export interface UsdcMarketResponse {
  */
 export interface UsdcMarketDashboardResponse {
   data: YieldOpportunity[]
-  meta: YieldResponseMeta
+  excluded: ExcludedMarketObservation[]
+  meta: YieldResponseMeta & {
+    ranking: {
+      scope: 'SUPPORTED_ETHEREUM_USDC_PROTOCOLS' | 'SUPPORTED_MARKET_PROTOCOLS'
+      sort: MarketDashboardSort
+      limit: number
+      productCount: number
+      totalEligibleProducts: number
+    }
+  }
 }
 
 const FRESH_MS = 15 * 60 * 1000

@@ -57,27 +57,30 @@ It must not become a full analytics terminal.
 
 ## 2. Portfolio
 
-Users can manually manage their DeFi positions.
+Users connect a wallet in read-only mode so DeFi OS can inspect public onchain data.
 
 The MVP should support:
 
-- Add a position
-- Edit a position
-- Delete a position
+- Connect and disconnect a wallet without requesting signatures or approvals
+- Read supported wallet assets from the public address
+- Detect supported protocol positions through protocol-specific adapters
+- Verify position balances against protocol contracts
 - View allocation by asset
 - View allocation by protocol
 - View allocation by chain
 
-Suggested position fields:
+Position fields include:
 
 - Asset
 - Protocol
 - Chain
 - Position type
 - Amount
-- Optional notes
+- Current USD value when available
+- Current APR or APY without converting between the two
+- Verification source and timestamp
 
-Wallet connection is not required.
+Initial protocol-position coverage is intentionally curated: Aave, Spark, Compound V3, Morpho Blue, Fluid, Maple, Yearn, Pareto, Midas, Dolomite, and Sentora on Ethereum. Standard vaults are valued through their protocol contracts; dynamic product discovery uses official registries or APIs and verifies the user's balance onchain. Unsupported positions must be shown as unsupported or unavailable, never silently treated as zero.
 
 ---
 
@@ -128,6 +131,8 @@ The Market module must not attempt to reproduce all DefiLlama features.
 
 Only information useful for comparison and decision making should be shown.
 
+Every product admitted to the formal Market search must have a live read-only position adapter. Discovery sources may find additional products, but those products stay outside the user-facing result set until Portfolio can identify the matching position reliably.
+
 ---
 
 ## 5. Chain Events
@@ -143,9 +148,20 @@ Relevant event types may include:
 - Significant liquidity movement
 - Important protocol announcements
 
-The MVP may begin with manually curated or simple feed-based events.
+The MVP uses a protocol event adapter registry. A protocol is marked covered only when an official governance,
+verified onchain, or official repository source has been connected. Unsupported protocols remain visibly
+uncovered instead of being filled with generic news.
+
+The first source set covers Aave, Spark, Morpho Blue, Compound, Fluid, Maple, Dolomite, and Yearn. Coverage is
+source-specific: for example, Yearn currently covers official security disclosures and does not claim complete
+governance coverage. Pareto, Midas, and Sentora remain explicit coverage gaps until a reliable formal source is
+integrated.
 
 A full real-time on-chain monitoring system is not required.
+
+When a formal event affects a detected position, the Decision Hero summarizes the rule outcome and links to the
+exact evidence row. It exposes the event category, known chain/asset scope, timestamp, and original source while
+leaving the transaction decision to the user.
 
 ---
 
@@ -200,7 +216,6 @@ The product must remain understandable even when an external provider fails.
 
 The MVP does not include:
 
-- Wallet Connect
 - Automated transactions
 - Notifications
 - Mobile application
@@ -227,7 +242,7 @@ The MVP does not include:
 DeFi OS v1 is complete when:
 
 1. The Dashboard provides a clear daily overview
-2. Users can manually manage portfolio positions
+2. Users can connect a wallet read-only and inspect supported, onchain-verified portfolio positions
 3. Users can view protocol details
 4. Users can browse a simplified Market view
 5. Users can view relevant Chain Events
