@@ -220,7 +220,7 @@ Rules:
 
 ---
 
-## DEC-016 — Product Detail Is a Thin Evidence Layer
+## DEC-017 — Product Detail Is a Thin Evidence Layer
 
 The Product detail page completes the path from a Dashboard conclusion to its underlying evidence without expanding the homepage or duplicating a full analytics terminal.
 
@@ -236,6 +236,22 @@ Rules:
 
 ---
 
+## DEC-018 — Production Validation before Feature Expansion
+
+After v1, DeFi OS enters a Production Beta and daily-validation phase before adding major product capabilities.
+
+Rules:
+
+- Deploy and validate the existing end-to-end decision journey before expanding it
+- Prioritize production reliability, honest partial-data behavior, privacy-safe observability, and real daily use
+- Use the production wallet only for a public address and keep the connection read-only
+- Do not add AI summaries, notifications, historical analytics, accounts, databases, automated transactions, or broad protocol coverage during this phase without new product evidence and an explicit scope update
+- Treat a founder-controlled wallet with a supported live position as an outstanding acceptance item until such a position is available
+- Use public live-address adapter checks and development fixtures as technical evidence, but never misrepresent them as founder-wallet evidence
+- Select the next major feature only after a 7–14 day Beta produces concrete usage evidence
+
+---
+
 # Pending Decisions
 
 Decide only when the related work begins:
@@ -246,6 +262,9 @@ Decide only when the related work begins:
 - Styling strategy
 - Runtime validation library
 - First health-rule thresholds
+- Production hosting target
+- Privacy-safe error and performance monitoring approach
+- Health-check contract and provider reliability thresholds
 
 ---
 

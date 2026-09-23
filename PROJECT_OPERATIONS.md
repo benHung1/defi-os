@@ -521,11 +521,11 @@ Last Completed Task:
 
 Status:
 
-**Release candidate published on `codex/task-012-market-groups-links`**
+**CLOSED / MERGED through GitHub PR #1 on 2026-09-23**
 
 Working tree:
 
-**Clean after RC validation; the branch is tracking `origin/codex/task-012-market-groups-links`.**
+**`main` is synchronized with `origin/main` at merge commit `3cd582d`; Phase 2 scope work begins from that state.**
 
 Current Dashboard hierarchy:
 
@@ -555,10 +555,32 @@ Important unfinished areas:
 
 - periodic re-validation of public live-address samples when protocol contracts or APIs change;
 - founder validation with a real wallet that holds at least one supported position.
+- production deployment, reliability hardening, and privacy-safe operational visibility;
+- 7–14 day founder Beta validation of the 30-second daily journey.
 
 Next Product Task:
 
-**Run the founder real-wallet acceptance pass, then prepare the v1 release candidate.**
+**Choose the production hosting and observability approach, then implement the smallest Production Beta foundation.**
+
+## Phase 2 Scope
+
+Phase 2 is **Production Beta and Daily Validation**.
+
+It includes:
+
+- one stable production deployment;
+- production Reown origin and environment configuration;
+- bounded provider timeout, cache, retry, and failure isolation where required;
+- privacy-safe API availability and latency visibility;
+- a minimal health endpoint;
+- desktop, mobile wallet, reconnect, disconnect, theme, and empty-state validation;
+- periodic public live-address adapter checks;
+- one founder-controlled supported-position pass when such a position is available;
+- 7–14 days of founder use before selecting another major feature.
+
+It explicitly excludes AI summaries, notifications, historical analytics, additional coverage without evidence,
+accounts, database infrastructure without a demonstrated need, automated transactions, Safety Score, and a native
+mobile application.
 
 ## v1 Integration Acceptance
 
@@ -643,6 +665,35 @@ Older implementation history remains available in Git.
 
 ---
 
+## Task-012 — v1 Integration Validation and Release Candidate
+
+Status:
+
+**CLOSED / MERGED**
+
+Goal:
+
+Complete and validate the position-aware Decision Dashboard as one coherent v1 journey.
+
+Result:
+
+- connected Decision Hero, Portfolio, personal USDC comparison, Market, Product detail, and Chain Events;
+- covered all 12 position adapters with deterministic tests and public live-address smoke checks;
+- added explicit partial-data semantics, accessibility, responsive behavior, and deferred wallet loading;
+- resolved Code Review findings for provider rejection handling, debt netting, and Aave product identity;
+- added GitHub CI for tests, typecheck, lint, and production build;
+- merged GitHub PR #1 into `main` with all checks passing.
+
+Merge commit:
+
+`3cd582d`
+
+Outstanding acceptance:
+
+- founder-controlled wallet validation remains pending until a supported live position is available.
+
+---
+
 ## Task-011 — Dashboard Information Architecture
 
 Status:
@@ -702,29 +753,6 @@ Important Code Review decisions:
 2. Only matching `rateType` values enter personal numeric comparison.
 3. Higher yield alone must not trigger Hero attention/warning.
 4. Factual comparison is not recommendation.
-
----
-
-## Task-009 — USDC Market Dashboard
-
-Status:
-
-**MERGED**
-
-Goal:
-
-Expose real USDC Market data through the Dashboard.
-
-Result:
-
-- USDC Market Dashboard connected to real market data;
-- `/api/market/usdc/dashboard` established as Market Dashboard source;
-- USDC used as the first narrow vertical slice;
-- broader multi-asset Market intentionally deferred.
-
-Merged commit:
-
-`79d3710a5e677d44ddb123b01f742b1cb5aa2c5d`
 
 ---
 
