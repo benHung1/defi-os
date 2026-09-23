@@ -517,15 +517,15 @@ A normal implementation Task is CLOSED only when:
 
 Last Completed Task:
 
-**MVP Integration — Position-aware Decision Dashboard**
+**v1 Integration Validation — Position-aware Decision Dashboard**
 
 Status:
 
-**Active validation on `codex/task-012-market-groups-links`**
+**Release candidate published on `codex/task-012-market-groups-links`**
 
 Working tree:
 
-**See `git status`; validation changes are committed in small slices.**
+**Clean after RC validation; the branch is tracking `origin/codex/task-012-market-groups-links`.**
 
 Current Dashboard hierarchy:
 
