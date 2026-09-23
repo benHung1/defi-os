@@ -14,6 +14,7 @@ export type DailyDecisionTone = 'neutral' | 'healthy' | 'watch' | 'critical'
 export type DailyDecisionReasonCode =
   | 'READ_ONLY_WALLET'
   | 'PORTFOLIO_LOADING'
+  | 'EVENTS_LOADING'
   | 'PORTFOLIO_UNAVAILABLE'
   | 'NO_SUPPORTED_POSITIONS'
   | 'SECURITY_EVENT'
@@ -119,7 +120,7 @@ function portfolioReason (input: DailyDecisionInput): DailyDecisionReason {
   const portfolio = input.portfolio
   return {
     code: 'PORTFOLIO_VERIFIED',
-    text: `已核對 ${portfolio.protocolCount} 個協議、${portfolio.positionCount} 個鏈上部位${portfolio.addressLabel ? `（${portfolio.addressLabel}）` : ''}。`
+    text: `${portfolio.partial ? '已成功核對' : '已核對'} ${portfolio.protocolCount} 個協議、${portfolio.positionCount} 個鏈上部位${portfolio.addressLabel ? `（${portfolio.addressLabel}）` : ''}${portfolio.partial ? '；仍有部分持倉來源未完成。' : '。'}`
   }
 }
 
@@ -148,16 +149,15 @@ export function evaluateDailyDecision (input: DailyDecisionInput): DailyDecision
     }
   }
 
-  if (input.portfolio.status === 'loading' || input.events.status === 'loading') {
+  if (input.portfolio.status === 'loading') {
     return {
       status: 'LOADING',
       tone: 'neutral',
       question: '正在核對今天的資料',
-      headline: '正在整理你的部位與相關事件…',
-      statement: '完成持倉和官方事件來源核對後，才會產生今日結論。',
+      headline: '正在讀取你的鏈上部位…',
+      statement: '完成公開地址與協議部位核對後，才會查詢與持倉相關的正式事件。',
       reasons: [
-        { code: 'PORTFOLIO_LOADING', text: '正在讀取公開鏈上部位' },
-        { code: 'PORTFOLIO_LOADING', text: '正在比對持倉協議的正式事件來源' }
+        { code: 'PORTFOLIO_LOADING', text: '正在讀取公開鏈上資產與已支援協議部位' }
       ]
     }
   }
@@ -194,6 +194,20 @@ export function evaluateDailyDecision (input: DailyDecisionInput): DailyDecision
     }
   }
 
+  if (input.events.status === 'loading') {
+    return {
+      status: 'LOADING',
+      tone: 'neutral',
+      question: '正在核對今天的資料',
+      headline: '部位已完成，正在核對相關事件…',
+      statement: '只查詢已辨識持倉協議的正式事件來源；完成前不會先下結論。',
+      reasons: [
+        portfolioReason(input),
+        { code: 'EVENTS_LOADING', text: '正在比對持倉協議的正式治理、升級與安全事件' }
+      ]
+    }
+  }
+
   const reviewEvent = input.events.items.find(event => event.type === 'SECURITY' || event.type === 'PAUSE')
   if (reviewEvent) {
     const isSecurity = reviewEvent.type === 'SECURITY'
@@ -225,7 +239,7 @@ export function evaluateDailyDecision (input: DailyDecisionInput): DailyDecision
       status: 'WATCH',
       tone: 'watch',
       question: '今天有什麼需要我注意？',
-      headline: `今天有 ${input.events.items.length} 項持倉相關變化值得了解`,
+      headline: `近 45 天有 ${input.events.items.length} 項持倉相關變化值得了解`,
       statement: '目前看到的是正式升級或治理變化，不等同於需要搬倉；請先查看原始來源。',
       reasons: appendCoverageReason([
         {

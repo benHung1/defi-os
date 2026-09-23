@@ -554,11 +554,29 @@ Current Market source:
 Important unfinished areas:
 
 - periodic re-validation of public live-address samples when protocol contracts or APIs change;
-- founder daily-use validation and removal of low-value elements.
+- founder validation with a real wallet that holds at least one supported position.
 
 Next Product Task:
 
-**Complete v1 integration validation before adding features.**
+**Run the founder real-wallet acceptance pass, then prepare the v1 release candidate.**
+
+## v1 Integration Acceptance
+
+The Dashboard has one decision flow:
+
+`Decision Hero → Portfolio evidence → Personal USDC comparison → Market exploration → Position-relevant events`
+
+Before a v1 release candidate is approved:
+
+- disconnected mode must explain the read-only connection and must not imply that portfolio data was checked;
+- complete position mode must keep totals, position counts, comparison scope, and event scope consistent;
+- partial coverage must label displayed values as verified subsets and must not infer that missing positions are zero;
+- event copy must use the same 45-day window as the event query and Decision Hero;
+- Portfolio loading and Event loading must be presented as separate stages;
+- automated tests, typecheck, lint, production build, desktop visual review, and narrow-screen review must pass;
+- one founder-controlled wallet with a supported live position must complete the same flow without using a development fixture.
+
+Development fixtures validate presentation and data contracts, but they do not satisfy the final real-wallet item.
 
 ## Local Portfolio Acceptance Scenario
 

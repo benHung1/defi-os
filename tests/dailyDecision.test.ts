@@ -77,7 +77,26 @@ test('marks upgrades and governance changes as watch', () => {
     source: 'Spark repository'
   })
 
-  assert.equal(evaluateDailyDecision(input).status, 'WATCH')
+  const result = evaluateDailyDecision(input)
+  assert.equal(result.status, 'WATCH')
+  assert.equal(result.headline, '近 45 天有 1 項持倉相關變化值得了解')
+})
+
+test('reports portfolio and event loading as separate stages', () => {
+  const portfolioLoading = readyInput()
+  portfolioLoading.portfolio.status = 'loading'
+  portfolioLoading.events.status = 'idle'
+
+  const portfolioResult = evaluateDailyDecision(portfolioLoading)
+  assert.equal(portfolioResult.headline, '正在讀取你的鏈上部位…')
+  assert.equal(portfolioResult.reasons.length, 1)
+
+  const eventsLoading = readyInput()
+  eventsLoading.events.status = 'loading'
+
+  const eventResult = evaluateDailyDecision(eventsLoading)
+  assert.equal(eventResult.headline, '部位已完成，正在核對相關事件…')
+  assert.match(eventResult.reasons[0]?.text ?? '', /已核對 1 個協議、1 個鏈上部位/)
 })
 
 test('does not elevate a higher yield candidate by itself', () => {
@@ -113,7 +132,10 @@ test('does not claim no action from partial portfolio coverage', () => {
   const input = readyInput()
   input.portfolio.partial = true
 
-  assert.equal(evaluateDailyDecision(input).status, 'UNKNOWN')
+  const result = evaluateDailyDecision(input)
+  assert.equal(result.status, 'UNKNOWN')
+  assert.match(result.reasons[0]?.text ?? '', /已成功核對/)
+  assert.match(result.reasons[0]?.text ?? '', /仍有部分持倉來源未完成/)
 })
 
 test('does not call an address with no positions healthy', () => {

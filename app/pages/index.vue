@@ -794,7 +794,13 @@ const defiPositionTotalUsd = computed(() => completeUsdTotal(walletPositions.val
 const portfolioValueBreakdown = computed(() => {
   const walletValue = formatPositionValue(walletAssetTotalUsd.value)
   const defiValue = formatPositionValue(defiPositionTotalUsd.value)
-  return `錢包資產 ${walletValue}\nDeFi 部位 ${defiValue}`
+  const balanceLabel = walletPortfolio.value?.meta.coverage.balances === 'PARTIAL'
+    ? '錢包資產（已核對）'
+    : '錢包資產'
+  const positionLabel = portfolioPositionsPartial.value
+    ? 'DeFi 部位（已核對）'
+    : 'DeFi 部位'
+  return `${balanceLabel} ${walletValue}\n${positionLabel} ${defiValue}`
 })
 const incompletePortfolioScopes = computed(() => {
   const coverage = walletPortfolio.value?.meta.coverage
@@ -1206,10 +1212,10 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
             aria-describedby="market-method-tooltip"
           >
             !
-            <span id="market-method-tooltip" class="method-tooltip" role="tooltip">
-              收錄 TVL 1,000 萬美元以上的單一資產收益產品；首頁先顯示排名較前的協議，展開後可繼續查看該協議的合格產品。官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
-            </span>
           </button>
+          <span id="market-method-tooltip" class="method-tooltip" role="tooltip">
+            收錄 TVL 1,000 萬美元以上的單一資產收益產品；首頁先顯示排名較前的協議，展開後可繼續查看該協議的合格產品。官方 API／鏈上資料優先，其他候選會標示第三方資料。APR 與 APY 口徑不同，不直接互相比較。
+          </span>
         </div>
 
         <p
@@ -1905,6 +1911,7 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
 }
 
 .market-method-note {
+  position: relative;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -1935,7 +1942,8 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   position: absolute;
   z-index: 20;
   top: calc(100% + 8px);
-  left: 50%;
+  left: 0;
+  box-sizing: border-box;
   width: min(390px, calc(100vw - 48px));
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -1949,14 +1957,14 @@ const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   opacity: 0;
   pointer-events: none;
   text-align: left;
-  transform: translate(-18px, -3px);
+  transform: translateY(-3px);
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
-.method-help:hover .method-tooltip,
-.method-help:focus-visible .method-tooltip {
+.method-help:hover + .method-tooltip,
+.method-help:focus-visible + .method-tooltip {
   opacity: 1;
-  transform: translate(-18px, 0);
+  transform: translateY(0);
 }
 
 .market-filters {
