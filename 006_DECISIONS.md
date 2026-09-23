@@ -252,6 +252,22 @@ Rules:
 
 ---
 
+## DEC-019 — Health Checks and Operational Logs Must Preserve Wallet Privacy
+
+Production readiness and API reliability need to be observable without turning public wallet addresses into retained
+application telemetry.
+
+Rules:
+
+- `GET /api/health` checks runtime and required deployment configuration without calling external providers
+- Production health returns HTTP 503 when the required Reown project ID is missing or malformed
+- Health responses expose configuration status, never configuration values
+- API completion logs contain only method, pathname without query data, response status, duration, outcome, and slow classification
+- Do not log wallet addresses, query values, headers, request bodies, or provider response bodies
+- Do not add blanket retries; apply bounded retry only to observed transient failures on idempotent reads
+
+---
+
 # Pending Decisions
 
 Decide only when the related work begins:
@@ -263,8 +279,8 @@ Decide only when the related work begins:
 - Runtime validation library
 - First health-rule thresholds
 - Production hosting target
-- Privacy-safe error and performance monitoring approach
-- Health-check contract and provider reliability thresholds
+- Production log destination and retention policy
+- Provider-specific reliability thresholds and retry eligibility
 
 ---
 

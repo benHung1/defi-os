@@ -525,7 +525,7 @@ Status:
 
 Working tree:
 
-**`main` is synchronized with `origin/main` at merge commit `3cd582d`; Phase 2 scope work begins from that state.**
+**Task-013 is active on `codex/task-013-production-beta-foundation`, based on `main` / `origin/main` at `e1c6cae`.**
 
 Current Dashboard hierarchy:
 
@@ -560,7 +560,7 @@ Important unfinished areas:
 
 Next Product Task:
 
-**Choose the production hosting and observability approach, then implement the smallest Production Beta foundation.**
+**Task-013 — implement the smallest deployment readiness and privacy-safe observability foundation.**
 
 ## Phase 2 Scope
 
@@ -662,6 +662,26 @@ the standard large-chunk advisory; the disconnected state and Connect modal open
 Keep only the most recent few Tasks that materially help restore project context.
 
 Older implementation history remains available in Git.
+
+---
+
+## Task-013 — Production Beta Foundation
+
+Status:
+
+**ACTIVE**
+
+Goal:
+
+Create the smallest production-readiness layer before choosing a hosting target or expanding product features.
+
+Current slice:
+
+- add a dependency-free `/api/health` readiness endpoint;
+- fail production readiness when required Reown configuration is absent;
+- add API completion observations without wallet addresses or query data;
+- lock the privacy and retry rules with deterministic tests;
+- keep deployment provider selection, external log storage, broad retry work, DB, accounts, and new product features out of scope.
 
 ---
 
