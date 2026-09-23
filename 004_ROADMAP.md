@@ -198,19 +198,64 @@ Do not begin major future features until the core product is validated.
 
 ---
 
-# After v1
+# Phase 2 — Production Beta and Daily Validation
 
-Possible future directions:
+## Goal
 
+Prove that the completed v1 can operate as a reliable daily product before expanding its feature surface.
+
+The primary question is:
+
+> Can a user open the hosted product, understand whether anything needs attention within 30 seconds, and trust the evidence shown?
+
+## In Scope
+
+- Deploy one production Beta environment with a stable URL
+- Configure Reown for the production origin without expanding wallet permissions
+- Define and validate production environment variables
+- Add bounded timeout, cache, retry, and failure-isolation behavior where current providers need it
+- Preserve explicit complete, partial, unavailable, and error states in production
+- Add privacy-safe operational visibility for API availability and latency
+- Add a minimal health endpoint suitable for deployment checks
+- Validate desktop, mobile wallet QR, theme, reconnect, disconnect, and empty-portfolio flows
+- Re-run public live-address adapter checks periodically
+- Complete one founder-controlled acceptance pass when a supported live position is available
+- Run a 7–14 day founder Beta and record confusing, unused, or missing decision support
+- Make only evidence-backed corrections to the existing 30-second journey
+
+## Out of Scope
+
+- AI summaries or AI investment recommendations
 - Notifications
-- Historical trends
-- More data providers
-- Risk scoring
-- AI summaries
-- Automated monitoring
-- Mobile experience
-- Multi-user support
+- Historical charts or a general analytics expansion
+- Additional chains, assets, or protocols without validation evidence
+- Login, user accounts, or multi-user support
+- Database infrastructure without a demonstrated persistence requirement
+- Automated transactions, approvals, rebalancing, swaps, or bridges
+- Composite Safety Score
+- Native mobile application
 
-Future features are not commitments.
+## Completion Criteria
 
-They require product evidence before entering the roadmap.
+- The production Beta can be opened and used reliably on desktop and mobile
+- Wallet connection remains read-only and requests no transaction, approval, or arbitrary signature
+- CI remains green for production changes
+- Provider failures cannot produce a false healthy or zero-balance conclusion
+- The system exposes enough privacy-safe evidence to diagnose provider failures and latency
+- At least one supported live position completes the full Decision Hero-to-evidence journey when available
+- The founder uses the product for 7–14 days and records whether it replaces the first daily visit to a broader DeFi dashboard
+- The next feature direction is selected from observed product evidence, not from a speculative feature list
+
+## Decisions Required Before Implementation
+
+- Production hosting target
+- Privacy-safe error and performance monitoring approach
+- Health-check contract and provider reliability thresholds
+
+---
+
+# Deferred Directions
+
+Notifications, risk scoring, AI wording assistance, automated monitoring, mobile applications, and multi-user support remain possible future directions.
+
+They are not commitments and must earn their place through Phase 2 evidence.

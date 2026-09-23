@@ -6,7 +6,7 @@
 
 ## Status
 
-Accepted v1.0
+Completed v1.0 — merged to `main` on 2026-09-23
 
 ---
 
