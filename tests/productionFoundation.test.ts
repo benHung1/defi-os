@@ -3,6 +3,8 @@ import test from 'node:test'
 import { buildHealthSnapshot } from '../server/services/healthService.ts'
 import { buildApiRequestObservation, sanitizeOperationalRoute } from '../server/utils/operationalTelemetry.ts'
 
+const TEST_REOWN_PROJECT_ID = 'a'.repeat(32)
+
 test('production health is degraded without a Reown project id', () => {
   const snapshot = buildHealthSnapshot({
     environment: 'production',
@@ -12,13 +14,13 @@ test('production health is degraded without a Reown project id', () => {
 
   assert.equal(snapshot.status, 'degraded')
   assert.deepEqual(snapshot.checks.reownProjectId, { status: 'fail', required: true })
-  assert.equal(JSON.stringify(snapshot).includes('9370657e096c7344be874710739460e6'), false)
+  assert.equal(JSON.stringify(snapshot).includes(TEST_REOWN_PROJECT_ID), false)
 })
 
 test('production health passes with a configured Reown project id', () => {
   const snapshot = buildHealthSnapshot({
     environment: 'production',
-    reownProjectId: '9370657e096c7344be874710739460e6'
+    reownProjectId: TEST_REOWN_PROJECT_ID
   })
 
   assert.equal(snapshot.status, 'ok')
