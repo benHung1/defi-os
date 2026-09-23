@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { signedPositionUsdValue } from '../app/utils/portfolioValue.ts'
 import { buildPortfolioResponse, type PortfolioInputs } from '../server/services/portfolioBuilder.ts'
 
 const ADDRESS = '0x0000000000000000000000000000000000000001'
@@ -81,4 +82,10 @@ test('a missing rate is partial evidence but does not invalidate a known portfol
   assert.equal(result.summary.totalUsd, 1500)
   assert.equal(result.meta.partial, true)
   assert.equal(result.meta.coverage.positions, 'PARTIAL')
+})
+
+test('uses debt as a negative value in the displayed DeFi subtotal', () => {
+  assert.equal(signedPositionUsdValue({ kind: 'SUPPLY', valueUsd: 1000 }), 1000)
+  assert.equal(signedPositionUsdValue({ kind: 'BORROW', valueUsd: 250 }), -250)
+  assert.equal(signedPositionUsdValue({ kind: 'BORROW', valueUsd: null }), null)
 })

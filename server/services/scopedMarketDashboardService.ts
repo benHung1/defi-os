@@ -22,7 +22,10 @@ export async function getMultiScopedMarketDashboard (
     .filter(asset => isSupportedCombination(chain, asset))
     .map(asset => ({ chain, asset })))
   if (combinations.length === 0) throw new Error('No supported market combinations were selected.')
-  const discoveryPromise = fetchDefiLlamaYieldPools()
+  const discoveryPromise = fetchDefiLlamaYieldPools().then(
+    discovery => discovery,
+    () => null
+  )
   const results = await Promise.allSettled(combinations.map(({ chain, asset }) =>
     getScopedMarketDashboard(chain, asset, { ...options, limit: 20 })))
   const successful = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
@@ -35,11 +38,15 @@ export async function getMultiScopedMarketDashboard (
   let discoveryFailed = false
   try {
     const discovery = await discoveryPromise
-    const selected = selectDefiLlamaCandidateProducts(discovery.pools, chains, assets, discovery.fetchedAt)
-    const officialProtocols = new Set(officialData.map(item => item.protocol.toLocaleLowerCase()))
-    discoveryData = selected.opportunities.filter(item => !officialProtocols.has(item.protocol.toLocaleLowerCase()))
-    discoveryExcluded = selected.excluded
-    discoveryFetchedAt = discovery.fetchedAt
+    if (!discovery) {
+      discoveryFailed = true
+    } else {
+      const selected = selectDefiLlamaCandidateProducts(discovery.pools, chains, assets, discovery.fetchedAt)
+      const officialProtocols = new Set(officialData.map(item => item.protocol.toLocaleLowerCase()))
+      discoveryData = selected.opportunities.filter(item => !officialProtocols.has(item.protocol.toLocaleLowerCase()))
+      discoveryExcluded = selected.excluded
+      discoveryFetchedAt = discovery.fetchedAt
+    }
   } catch {
     discoveryFailed = true
   }

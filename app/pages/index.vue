@@ -7,7 +7,8 @@ import type {
   ChainEventType
 } from '../../shared/types/chainEvents'
 import { dailyDecisionEventTarget, evaluateDailyDecision, type DailyDecisionInput } from '../utils/dailyDecision'
-import { productDetailPath } from '../utils/productDetail'
+import { signedPositionUsdValue } from '../utils/portfolioValue'
+import { portfolioPositionDetailReference, productDetailPath } from '../utils/productDetail'
 
 interface SummaryItem {
   label: string
@@ -790,7 +791,7 @@ const completeUsdTotal = (values: Array<number | null>): number | null =>
     ? null
     : values.reduce<number>((total, value) => total + (value ?? 0), 0)
 const walletAssetTotalUsd = computed(() => completeUsdTotal(walletAssets.value.map(asset => asset.valueUsd)))
-const defiPositionTotalUsd = computed(() => completeUsdTotal(walletPositions.value.map(position => position.valueUsd)))
+const defiPositionTotalUsd = computed(() => completeUsdTotal(walletPositions.value.map(signedPositionUsdValue)))
 const portfolioValueBreakdown = computed(() => {
   const walletValue = formatPositionValue(walletAssetTotalUsd.value)
   const defiValue = formatPositionValue(defiPositionTotalUsd.value)
@@ -815,13 +816,8 @@ const portfolioPositionsPartial = computed(() => walletPortfolio.value?.meta.cov
 const formatPositionRate = (rate: number | null, rateType: string | null): string => rate === null || !rateType
   ? '利率不適用'
   : `${rate.toFixed(2)}% ${rateType}`
-const positionDetailPath = (position: PortfolioPosition): string => productDetailPath({
-  protocol: position.protocol,
-  product: position.product,
-  chain: position.chain,
-  asset: position.asset,
-  sourcePoolId: position.contractAddress
-})
+const positionDetailPath = (position: PortfolioPosition): string =>
+  productDetailPath(portfolioPositionDetailReference(position))
 const portfolioSummaryItems = computed<SummaryItem[]>(() => {
   const portfolio = walletPortfolio.value
   if (!portfolio) return []

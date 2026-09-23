@@ -1,3 +1,5 @@
+import type { PortfolioPosition } from '../../shared/types/portfolio'
+
 export interface ProductDetailReference {
   protocol: string
   product: string
@@ -40,4 +42,20 @@ export function decodeProductDetailId (id: string): ProductDetailReference | nul
 
 export function productDetailPath (reference: ProductDetailReference): string {
   return `/products/${encodeProductDetailId(reference)}`
+}
+
+export function portfolioPositionDetailReference (position: PortfolioPosition): ProductDetailReference {
+  const asset = position.asset.toUpperCase()
+  const aaveProductSuffix = ` ${asset}`
+  const isAave = position.protocol.toLowerCase() === 'aave'
+
+  return {
+    protocol: position.protocol,
+    product: isAave && !position.product.toUpperCase().endsWith(aaveProductSuffix)
+      ? `${position.product} ${asset}`
+      : position.product,
+    chain: position.chain,
+    asset,
+    sourcePoolId: isAave ? undefined : position.contractAddress
+  }
 }
