@@ -63,6 +63,25 @@ The detail page may combine:
 
 Missing Market or Event data remains unavailable instead of being replaced with zero. A Portfolio position can still be inspected when its matching Market observation is temporarily unavailable.
 
+## Production health and operational visibility
+
+`GET /api/health` is the deployment readiness contract. It verifies the server runtime and required production
+configuration without calling an external provider. Production readiness fails with HTTP 503 when the Reown project
+ID is missing or malformed; the response reports only configuration status and never returns the configured value.
+
+Server API requests emit one privacy-safe completion observation containing only:
+
+- HTTP method;
+- route pathname without query data;
+- response status;
+- duration;
+- success/client-error/server-error outcome;
+- slow-request classification.
+
+Wallet addresses, query values, headers, request bodies, and provider response bodies are not operational log fields.
+Retries are not applied globally: each provider must earn retry behavior from observed transient failures, and only
+idempotent reads may be retried within a bounded request budget.
+
 ## Chain Event Adapter Registry
 
 Chain Events use an explicit server-side registry rather than protocol conditionals in the page.

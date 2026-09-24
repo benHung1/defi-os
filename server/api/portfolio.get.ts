@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
     return await getPortfolio(address.toLowerCase())
   } catch (error) {
     console.error('[api/portfolio] portfolio lookup failed', {
-      address,
       detail: error instanceof Error ? error.message : 'Unknown portfolio failure'
     })
     throw createError({ statusCode: 502, statusMessage: 'Bad Gateway', message: 'Portfolio data is currently unavailable.' })
