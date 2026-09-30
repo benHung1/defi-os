@@ -1,8 +1,9 @@
-import { ProviderError } from '../errors'
+import { ProviderError } from '../errors.ts'
 
 const DEFILLAMA_YIELDS_POOLS_URL = 'https://yields.llama.fi/pools'
 const PROVIDER_NAME = 'DefiLlama'
 const CACHE_MS = 60_000
+const REQUEST_TIMEOUT_MS = 12_000
 let cachedResult: { expiresAt: number, promise: Promise<DefiLlamaYieldFetchResult> } | null = null
 
 export interface DefiLlamaYieldPool {
@@ -141,7 +142,8 @@ async function fetchFreshDefiLlamaYieldPools (): Promise<DefiLlamaYieldFetchResu
     response = await fetch(DEFILLAMA_YIELDS_POOLS_URL, {
       headers: {
         Accept: 'application/json'
-      }
+      },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     })
   } catch (error) {
     throw new ProviderError(PROVIDER_NAME, 'Failed to reach DefiLlama yields API', { cause: error })

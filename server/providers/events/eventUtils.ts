@@ -47,11 +47,11 @@ export function classifyEventTitle (title: string): { type: ChainEventType, seve
   return { type: 'GOVERNANCE', severity: 'INFO' }
 }
 
-export function isRecentTimestamp (timestampSeconds: number, days = 45): boolean {
+export function isRecentTimestamp (timestampSeconds: number, days = 45, referenceTimeMs = Date.now()): boolean {
   const timestampMs = timestampSeconds * 1000
   return Number.isFinite(timestampMs)
-    && timestampMs <= Date.now() + 5 * 60 * 1000
-    && timestampMs >= Date.now() - days * 24 * 60 * 60 * 1000
+    && timestampMs <= referenceTimeMs + 5 * 60 * 1000
+    && timestampMs >= referenceTimeMs - days * 24 * 60 * 60 * 1000
 }
 
 export function isMaterialGovernanceTitle (title: string): boolean {

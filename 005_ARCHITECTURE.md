@@ -82,6 +82,9 @@ Wallet addresses, query values, headers, request bodies, and provider response b
 Retries are not applied globally: each provider must earn retry behavior from observed transient failures, and only
 idempotent reads may be retried within a bounded request budget.
 
+Every external provider read has an explicit timeout. A timeout is handled as provider unavailability and follows
+the existing partial, unavailable, or cache-fallback path; it must never be converted into a zero value.
+
 ## Chain Event Adapter Registry
 
 Chain Events use an explicit server-side registry rather than protocol conditionals in the page.

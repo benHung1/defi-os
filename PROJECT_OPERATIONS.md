@@ -517,15 +517,15 @@ A normal implementation Task is CLOSED only when:
 
 Last Completed Task:
 
-**v1 Integration Validation — Position-aware Decision Dashboard**
+**Task-013 — Production Beta Foundation**
 
 Status:
 
-**CLOSED / MERGED through GitHub PR #1 on 2026-09-23**
+**CLOSED / MERGED through GitHub PR #3 on 2026-09-30**
 
 Working tree:
 
-**Task-013 is active on `codex/task-013-production-beta-foundation`, based on `main` / `origin/main` at `e1c6cae`.**
+**Task-014 is active on `codex/task-014-local-reliability`, based on `main` / `origin/main` at `bab5d4c`.**
 
 Current Dashboard hierarchy:
 
@@ -560,7 +560,7 @@ Important unfinished areas:
 
 Next Product Task:
 
-**Task-013 — implement the smallest deployment readiness and privacy-safe observability foundation.**
+**Task-014 — bound the remaining Market provider requests and validate honest local failure states.**
 
 ## Phase 2 Scope
 
@@ -665,11 +665,31 @@ Older implementation history remains available in Git.
 
 ---
 
-## Task-013 — Production Beta Foundation
+## Task-014 — Local Provider Reliability
 
 Status:
 
 **ACTIVE**
+
+Goal:
+
+Prevent an unbounded Market provider request from leaving the local daily journey waiting indefinitely.
+
+Current slice:
+
+- add explicit 12-second timeouts to the remaining Aave Market, DefiLlama Yields, and Morpho Vault reads;
+- preserve ProviderError, partial-data, unavailable, and cache-fallback behavior;
+- verify that every changed upstream request is abortable;
+- evaluate Dolomite event recency from the supplied fetch time so acceptance tests remain deterministic;
+- do not add retries, providers, assets, chains, deployment work, or new product UI.
+
+---
+
+## Task-013 — Production Beta Foundation
+
+Status:
+
+**CLOSED / MERGED**
 
 Goal:
 
@@ -682,6 +702,10 @@ Current slice:
 - add API completion observations without wallet addresses or query data;
 - lock the privacy and retry rules with deterministic tests;
 - keep deployment provider selection, external log storage, broad retry work, DB, accounts, and new product features out of scope.
+
+Merge commit:
+
+`bab5d4c`
 
 ---
 

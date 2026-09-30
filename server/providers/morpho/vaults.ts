@@ -1,7 +1,8 @@
-import { ProviderError } from '../errors'
+import { ProviderError } from '../errors.ts'
 
 const MORPHO_GRAPHQL_URL = 'https://api.morpho.org/graphql'
 const PROVIDER_NAME = 'Morpho'
+const REQUEST_TIMEOUT_MS = 12_000
 export const ETHEREUM_USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
 export type MorphoVaultVersion = 'V1' | 'V2'
@@ -237,7 +238,8 @@ export async function fetchMorphoEthereumUsdcVaults (): Promise<MorphoVaultFetch
       },
       body: JSON.stringify({
         query: MORPHO_ETHEREUM_USDC_VAULTS_QUERY
-      })
+      }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     })
   } catch (error) {
     throw new ProviderError(PROVIDER_NAME, 'Failed to reach Morpho GraphQL API', { cause: error })

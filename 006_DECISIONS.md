@@ -264,6 +264,7 @@ Rules:
 - Health responses expose configuration status, never configuration values
 - API completion logs contain only method, pathname without query data, response status, duration, outcome, and slow classification
 - Do not log wallet addresses, query values, headers, request bodies, or provider response bodies
+- Every external provider read must have an explicit bounded timeout; timeout is unavailable evidence, never a zero value
 - Do not add blanket retries; apply bounded retry only to observed transient failures on idempotent reads
 
 ---

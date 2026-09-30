@@ -1,7 +1,8 @@
-import { ProviderError } from '../errors'
+import { ProviderError } from '../errors.ts'
 
 const AAVE_GRAPHQL_URL = 'https://api.v3.aave.com/graphql'
 const PROVIDER_NAME = 'Aave'
+const REQUEST_TIMEOUT_MS = 12_000
 const ETHEREUM_CHAIN_ID = 1
 const CORE_MARKET_NAME = 'AaveV3Ethereum'
 const ETHEREUM_USDC_ADDRESS = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
@@ -90,7 +91,8 @@ export async function fetchAaveEthereumUsdcMarket (): Promise<{
     response = await fetch(AAVE_GRAPHQL_URL, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: QUERY })
+      body: JSON.stringify({ query: QUERY }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     })
   } catch (error) {
     throw new ProviderError(PROVIDER_NAME, 'Failed to reach Aave GraphQL API', { cause: error })

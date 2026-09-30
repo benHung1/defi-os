@@ -31,13 +31,14 @@ export function parseDolomiteGovernanceArchive (
   markdown: string,
   fetchedAt = new Date().toISOString()
 ): ChainEventRecord[] {
+  const referenceTimeMs = Date.parse(fetchedAt)
   return markdown.split(/\r?\n/).flatMap((line): ChainEventRecord[] => {
     if (!line.trim().startsWith('|') || /^\|?\s*:?-+/.test(line.trim())) return []
     const cells = line.split('|').slice(1, -1).map(cell => cell.trim())
     if (cells.length < 4 || !/^DIP-\d+/i.test(plainText(cells[0] ?? ''))) return []
     if (!/^passed$/i.test(plainText(cells[1] ?? ''))) return []
     const implementedAt = implementationDate(cells[3] ?? '')
-    if (!implementedAt || !isRecentTimestamp(implementedAt.getTime() / 1000)) return []
+    if (!implementedAt || !isRecentTimestamp(implementedAt.getTime() / 1000, 45, referenceTimeMs)) return []
 
     const proposalText = plainText(cells[0] ?? '')
     const proposal = proposalText.match(/^DIP-\d+/i)?.[0]?.toUpperCase() ?? proposalText
